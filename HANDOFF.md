@@ -11,6 +11,12 @@ Second upload was lower:
 - Uploaded file: `artifacts/submission_CANDIDATE2_lgbm_sqrt_leaves15.csv`
 - Public score: `0.3990370`
 
+Third upload was a clean, no-leakage-proxy submission:
+
+- Uploaded file: `artifacts/submission_CLEAN_lgbm_sqrt_leaves15.csv`
+- Public score: `0.3263827`
+- Rank at time checked: `157/335`
+
 ## Important conclusion
 
 The old `Reference_Only_Old_Test_Data/test.csv` leakage was already used for `serverGetPoint`.
@@ -22,6 +28,8 @@ For the 1,236 `rally_uid` values overlapping with `test_new.csv`:
 
 This leakage does not provide the next-stroke `actionId` or `pointId` labels. In old test, those columns are the known prefix strokes, not the hidden next-stroke answer.
 
+The clean leaves15 upload removed the old-test `serverGetPoint` smoothing and dropped from the public-best `0.4102132` to `0.3263827`. This suggests the public leaderboard is highly sensitive to the old-test overlap smoothing, so public scores from smoothing submissions should not be treated as pure model quality.
+
 ## Scripts
 
 - `scripts/eda.py`: data summary and leakage/overlap checks.
@@ -32,6 +40,7 @@ This leakage does not provide the next-stroke `actionId` or `pointId` labels. In
 - `scripts/train_phase_lgbm.py`: phase-specific LightGBM experiment.
 - `scripts/train_catboost_baseline.py`: CatBoost experiment, too slow on this laptop.
 - `scripts/test_like_validation.py`: 5-seed test-like validation gate.
+- `scripts/private_safe_report.py`: three-scale report for all-prefix match, test-like rally, and test-like match validation.
 
 ## Best local results so far
 
@@ -39,6 +48,7 @@ Original all-prefix GroupKFold by match:
 
 - LGBM `sqrt`, `num_leaves=31`: local overall `0.32350`, public `0.4102132`
 - LGBM `sqrt`, `num_leaves=15`: local overall `0.32439`, public `0.3990370`
+- Clean LGBM `sqrt`, `num_leaves=15`: public `0.3263827`
 
 Other experiments:
 
