@@ -1,0 +1,83 @@
+{
+  "fold_scores": [
+    {
+      "fold": 1,
+      "lgbm": {
+        "action_macro_f1": 0.2962885463559849,
+        "point_macro_f1": 0.21067458366908537,
+        "server_auc": 0.6027140816770854,
+        "overall": 0.3233280683454452
+      },
+      "markov": {
+        "action_macro_f1": 0.18061081164543938,
+        "point_macro_f1": 0.13976900591543026,
+        "server_auc": 0.5161098049252635,
+        "overall": 0.23137388800940056
+      }
+    },
+    {
+      "fold": 2,
+      "lgbm": {
+        "action_macro_f1": 0.2869817221719843,
+        "point_macro_f1": 0.20462619156356593,
+        "server_auc": 0.5914664236615721,
+        "overall": 0.31493645022653455
+      },
+      "markov": {
+        "action_macro_f1": 0.1597529535726545,
+        "point_macro_f1": 0.12822598867960053,
+        "server_auc": 0.5145696927527792,
+        "overall": 0.21810551545145784
+      }
+    },
+    {
+      "fold": 3,
+      "lgbm": {
+        "action_macro_f1": 0.2889534196647618,
+        "point_macro_f1": 0.22908900967023152,
+        "server_auc": 0.6048938240328151,
+        "overall": 0.32819573654056033
+      },
+      "markov": {
+        "action_macro_f1": 0.17932042033349407,
+        "point_macro_f1": 0.15038653960806186,
+        "server_auc": 0.5248470634785873,
+        "overall": 0.23685219667233987
+      }
+    }
+  ],
+  "weights": {
+    "action": {
+      "weight_lgbm": 0.98,
+      "score": 0.2931189990858898
+    },
+    "point": {
+      "weight_lgbm": 1.0,
+      "score": 0.21595499724735726
+    },
+    "server": {
+      "weight_lgbm": 1.0,
+      "score": 0.5996106935743304
+    }
+  },
+  "oof_scores": {
+    "lgbm": {
+      "action_macro_f1": 0.29299853913905427,
+      "point_macro_f1": 0.21595499724735726,
+      "server_auc": 0.5996106935743304,
+      "overall": 0.3235035532694307
+    },
+    "markov": {
+      "action_macro_f1": 0.17391043880573973,
+      "point_macro_f1": 0.14225230997854596,
+      "server_auc": 0.5182338477344579,
+      "overall": 0.23011186906060585
+    },
+    "ensemble": {
+      "action_macro_f1": 0.2931189990858898,
+      "point_macro_f1": 0.21595499724735726,
+      "server_auc": 0.5996106935743304,
+      "overall": 0.3235517372481649
+    }
+  }
+}
