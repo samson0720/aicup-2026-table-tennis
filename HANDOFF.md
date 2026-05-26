@@ -65,12 +65,8 @@ Key conclusion:
 - Match-level private-safe validation preferred leaves15, opposite of public leaderboard.
 - Therefore this validation is not yet reliable enough for final submission decisions.
 
-## Recommended state
-
-Do not submit small local-CV improvements blindly. The current public-best file remains:
+## Current public-best file
 
 ```text
 artifacts/submission_RECOMMENDED_upload.csv
 ```
-
-Only one daily submission remained after the two uploads described above.
