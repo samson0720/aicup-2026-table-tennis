@@ -77,6 +77,43 @@ section for the table. Highlights:
   or assign zero meta weight. Remove from `MODELS` list in
   `scripts/build_route_a_submission.py` / `scripts/produce_base_oof.py`.
 
+## Audit findings (2026-05-28, pre-P2)
+
+Cross-checked spec vs 5 plans vs PROGRESS vs HANDOFF vs memory. Fixed (committed)
+findings:
+
+- **F1: Noise floor was wrong** — spec says across-seed std (0.00168), I had
+  across-fold std (0.00635) in PROGRESS/HANDOFF/commit messages. Fixed in
+  commit `9ea6268`; diagnostic JSON now emits both.
+- **F2: LightGBM GPU not available** — spec asked for it, conda-forge has
+  CPU-only. Spec Section 6 risk row permits fallback. Documented GPU policy
+  (commit `ed202f8`): PyTorch + XGBoost GPU paths verified; LightGBM stays
+  CPU because data is below GPU break-even.
+
+Documented-but-deferred findings (acceptable spec deviations or design
+ambiguities to resolve during P2 implementation, NOT bugs in P1):
+
+- **F3: Drop player_stats from P2 base set deviates from spec Section 5.1**
+  which lists it as one of five bases. Justified by both local CV (-0.037)
+  and public clean (-0.015) agreeing it is worse than the leaves=15 baseline.
+  When implementing P2 Task 4, decide: (a) skip building its OOF entirely,
+  or (b) build it but exclude from MODELS list in the stacker. Option (a)
+  saves ~37 min CPU and is the cleaner choice.
+- **F4: P2 Task 10 stacker label-collapse design ambiguity** — plan averages
+  base OOF over 5 seeds (one row per rally) but each seed has its own cut
+  target, so `drop_duplicates("rally_uid")` keeps an arbitrary single label
+  per rally. Cleaner design: train meta-learner on un-averaged (rally, seed)
+  rows so labels match per-row. Defer decision until we see the lift from
+  the plan-as-written; if lift < 0.005 (3 std-across-seed), switch to the
+  un-averaged form.
+- **F5: Spec Section 2.4 phase-blend weights** — spec gives starting values
+  (0.3/0.7, 0.6/0.4, 1.0/0). Plan P2 Task 8 says they are tunable by OOF
+  grid search. Use the spec values as the initial point of the grid.
+- **F6: P1 Task 5.3 rng state consumption** — provisional-cut sampling and
+  fold-assignment rng share state with later real-cut sampling. Mitigated
+  in the actual cv_splits.py by re-seeding with `seed + 10_000` for the
+  real cuts. Tests pass. No action needed.
+
 ## Known issues to fix when we hit them
 
 Flagged during plan review on 2026-05-27, NOT YET FIXED:
@@ -90,7 +127,10 @@ Flagged during plan review on 2026-05-27, NOT YET FIXED:
 3. **P2 Task 10 stacker label collapse** — `attached.drop_duplicates("rally_uid")` keeps only one seed's cut-target label per rally; the seed-averaged base features see all 5 seeds. This is a feature/label mismatch but probably benign because LR with L2 is robust to label noise.
    - **Decide when running P2 T9–10**: if stacking lift is < 0.01, revisit by training the meta-learner on the un-averaged (rally, seed) rows so labels match features per row.
 
-4. **P1 Task 5.3 phase-stratified rng state consumption** — the histogram-building `rng.integers` call inside `assign(_cut=...)` consumes rng state before the actual cut sampling. May cause cuts to differ slightly from a Task-4-only path. Should not affect invariants — tests will catch any drift.
+4. ~~P1 Task 5.3 phase-stratified rng state consumption~~ — RESOLVED. The
+   actual cv_splits.py re-seeds with `seed + 10_000` for the real cut sampler,
+   isolating it from the provisional-cut rng state used for fold assignment.
+   Tests pass; see audit F6.
 
 ## Logged decisions
 
@@ -113,6 +153,20 @@ Wall-clock budget for P2:
 - Tasks 10–12 (submission assembly + lift comparison): ~1 hour
 
 Realistically P2 takes 4–6 hours of compute + 2–3 hours of agent work. Pace yourself across sessions.
+
+## P2 entry criteria (must hold before starting Route A)
+
+- [x] `aicup-tt` env exists and `torch.cuda.is_available()` True
+- [x] `artifacts/cv_splits.parquet` materialized (74975, 6)
+- [x] `tests/test_cv_splits.py` all 8 invariants green
+- [x] `artifacts/cv_gap_diagnostic.json` written with both std definitions
+- [x] Noise floor decision recorded: 0.00168 across-seed overall
+- [x] GPU policy recorded: CPU LightGBM, GPU PyTorch + optional GPU XGBoost
+- [x] PROGRESS lists known issues to address mid-P2 (F3/F4/F5; P3 in-bag bug for later)
+- [ ] **Invoke `superpowers:executing-plans` skill** when opening
+      `docs/superpowers/plans/2026-05-27-route-a-postprocess-stack.md`
+- [ ] **Invoke `superpowers:verification-before-completion`** before any
+      "task done" claim during P2
 
 ## Notes on conda usage
 
