@@ -16,7 +16,7 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 |---|---|---|
 | P1 cv-foundation | 1–10 | **DONE** (commits `fd2cf58`..`d8b46fc`, main) |
 | P2 route-a-postprocess-stack | 1–12 | **DONE** on `p2-route-a` branch |
-| P3 route-b-features-chain | 1–10 | pending — independent of P2 |
+| P3 route-b-features-chain | 1–10 | **DONE** on `p2-route-a` branch |
 | P4 route-c-transformer | 1–6 | pending — needs 3090; independent of P2/P3 |
 | P5 final-ensemble | 1–7 | pending — blocked by P2 + P3 + P4 |
 
@@ -75,6 +75,42 @@ Status:
 - T5-T9 ✓ score_oof + postprocess (prior/threshold/blend/pair-prior) + stacker (10 tests green total)
 - T10+T11 ✓ submission assembly + test-time refit written and executed
 - T12 ✓ lift quantified: `0.3423 - 0.3027 = +0.0396`; P2 accepted
+
+## P3 Route B results (2026-05-28)
+
+Implemented OOF-safe feature engineering and chain LightGBM:
+
+- `scripts/target_encoding.py`: smoothed encoders with unseen-key global prior fallback.
+- `scripts/feature_ngrams.py`: prefix n-gram/streak features.
+- `scripts/feature_semisupervised.py`: train+test observable player feature distributions.
+- `scripts/build_features_v2.py`: writes `artifacts/prefix_train_v2.parquet` `(74975, 322)`.
+- `scripts/train_chain_lgbm.py`: action → point → server chain using prior-stage OOF probabilities.
+- `scripts/build_route_b_submission.py`: full-train test inference without in-bag leakage in downstream training features.
+
+Route B OOF scores (`artifacts/route_b_chain_scores.json`):
+
+| Variant | action F1 | point F1 | server AUC | overall | lift vs lgbm15 |
+|---|---:|---:|---:|---:|---:|
+| raw argmax | 0.2689 | 0.1627 | 0.6498 | 0.3026 | -0.0000 |
+| prior+threshold selected | 0.2880 | 0.1817 | 0.6498 | **0.3178** | **+0.0152** |
+
+The selected Route B score beats the best base (`lgbm15 overall=0.3027`) by
+`+0.0152`, well above the `0.00168` noise floor and within the planned
+`+0.015` to `+0.030` target range.
+
+Important implementation note: the known P3 Task 10 in-bag leakage issue was
+fixed. Point/server training rows consume `chain_action`/`chain_point` OOF
+probabilities merged by `(rally_uid, seed, fold)`. Test rows consume full-train
+upstream model probabilities, which matches the intended inference path without
+letting downstream stages train on in-bag upstream probabilities.
+
+Generated submission:
+
+- `artifacts/submission_B_chain.csv` `(1845, 4)`.
+- Test probability parquets:
+  `artifacts/oof/chain_action_action_test.parquet`,
+  `artifacts/oof/chain_point_point_test.parquet`,
+  `artifacts/oof/chain_server_server_test.parquet`.
 
 ## P1 results (baseline locked in)
 
