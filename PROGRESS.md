@@ -14,11 +14,31 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 | Plan | Tasks | Status |
 |---|---|---|
-| P1 cv-foundation | 1–10 | **in progress** (executing now) |
-| P2 route-a-postprocess-stack | 1–12 | pending — blocked by P1 |
-| P3 route-b-features-chain | 1–10 | pending — blocked by P1 |
-| P4 route-c-transformer | 1–6 | pending — blocked by P1, needs 3090 |
+| P1 cv-foundation | 1–10 | **DONE** (commits `fd2cf58`..`d8b46fc`) |
+| P2 route-a-postprocess-stack | 1–12 | **next up** |
+| P3 route-b-features-chain | 1–10 | pending — independent of P2 |
+| P4 route-c-transformer | 1–6 | pending — needs 3090; independent of P2/P3 |
 | P5 final-ensemble | 1–7 | pending — blocked by P2 + P3 + P4 |
+
+## P1 results (baseline locked in)
+
+`scripts/diagnose_cv_gap.py` re-ran LGBM sqrt/leaves=15 (180 estimators) on
+the new private-safe CV. Every future experiment is measured against these
+numbers; any lift smaller than the across-fold std is treated as noise.
+
+| Target | New CV | Old CV (`lgbm_baseline_cv.json`) | Δ |
+|---|---:|---:|---:|
+| action macro-F1 | 0.2550 | 0.2948 | -0.040 |
+| point  macro-F1 | 0.1711 | 0.2154 | -0.044 |
+| server AUC      | 0.6541 | 0.6016 | +0.052 |
+| **overall**     | **0.3013** | 0.3244 | -0.023 |
+| std overall     | 0.0063 | — | — |
+
+Key takeaways:
+- **Noise floor: 0.0063 overall.** Reject any A/B/C/Ensemble improvement smaller than this on the new CV.
+- pointId is still the weakest target — confirms the design spec's claim. Route B target encoding is the most plausible lift here.
+- Server AUC went UP under the new CV: mid-rally cuts expose phase 0 / phase 1 where there is more signal than at end-of-rally; suggests the phase-aware blend in Route A Task 8 could compound the gain.
+- Clean public LB (no smoothing) was 0.3264 vs old-CV-overall 0.3244, almost matching. New-CV-overall 0.3013 is therefore the realistic "private-safe" baseline.
 
 ## Known issues to fix when we hit them
 
@@ -44,10 +64,18 @@ Flagged during plan review on 2026-05-27, NOT YET FIXED:
 ## Resuming work
 
 Next concrete steps the next agent should take, in order:
-1. Check `git log` to see how many P1 tasks were committed.
-2. Run `conda env list | grep aicup-tt` to see if env exists.
-3. Read the plan task that matches the lowest unchecked `- [ ]` checkbox in `docs/superpowers/plans/2026-05-27-cv-foundation.md`.
-4. Resume from there.
+1. **P1 is fully done.** Skip the P1 plan.
+2. Open `docs/superpowers/plans/2026-05-27-route-a-postprocess-stack.md` and start at Task 1 (OOF parquet schema lock — `scripts/oof_loader.py`).
+3. Before Task 11 (test-time refit), re-read item 2 in the "Known issues" section above; the existing `train_*.py` scripts already have test-prediction logic that should be lifted into `predict_test_*` helpers.
+
+Wall-clock budget for P2:
+- Tasks 1–5 (oof_loader + producer + scoring): code only, ~30 min interactive
+- Tasks 2.2–2.3 (lgbm15 / lgbm31 OOF generation): 25 folds × ~30 s/fold × 2 leaves = ~25 min each, run in background
+- Tasks 3–4 (markov / phase_lgbm / player_stats producers): need legacy script refactor — budget 1 hour each for the refactor, then ~15–30 min per OOF run
+- Tasks 6–9 (post-process + stacker + tests): ~1 hour interactive
+- Tasks 10–12 (submission assembly + lift comparison): ~1 hour
+
+Realistically P2 takes 4–6 hours of compute + 2–3 hours of agent work. Pace yourself across sessions.
 
 ## Notes on conda usage
 
