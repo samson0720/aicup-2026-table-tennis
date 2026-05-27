@@ -119,3 +119,31 @@ Realistically P2 takes 4–6 hours of compute + 2–3 hours of agent work. Pace 
 - All plan commands run inside the env: `conda run -n aicup-tt <command>` (no shell activation needed).
 - Do NOT install with `pip install --user`. Do NOT touch `base`.
 - For ad-hoc Python sanity checks BEFORE `aicup-tt` exists, the `jitkg` env on this machine has `pandas`. Don't conflate it with project work.
+
+## GPU policy (verified 2026-05-28)
+
+Spec Section 1.1 asked for "lightgbm built with GPU support". The conda-forge
+`lightgbm=4.3.*` package and the PyPI wheel are both **CPU-only**; both
+`device='cuda'` and `device='gpu'` raise `LightGBMError` ("Tree Learner was
+not enabled in this build"). Spec Section 6 risk row explicitly allows the
+fallback to CPU LightGBM.
+
+Decision (per user instruction "能用到gpu的可以盡管用"):
+
+- **PyTorch on 3090**: verified `cuda True`, `NVIDIA GeForce RTX 3090`. Used
+  by Route C Transformer (P4) — the only spec-mandated GPU path.
+- **XGBoost on 3090**: verified `xgb.XGBClassifier(device='cuda',
+  tree_method='hist')` works. xgboost 2.0.3. Available as an optional
+  ensemble-diversity base if we want one in P2 (spec Section 1.1 listed
+  xgboost for "ensemble diversity, GPU-capable" but the current plans do
+  not use it; revisit only if a base is needed beyond the planned five).
+- **LightGBM stays CPU**: dataset is ~12k rows per fold which is below
+  LightGBM GPU's typical break-even (~100k rows). GPU on this size is
+  often slower than CPU due to data-transfer overhead. Building a GPU
+  LightGBM from source (requires installing CUDA-dev headers or OpenCL
+  ICD into the env) would risk breaking the working PyTorch 12.1 setup
+  for negligible-to-negative wall-clock benefit.
+
+Wall-clock budget on CPU LightGBM: per fit ~30 s (180 estimators, 12k rows,
+~30 features) → per OOF model 75 fits × 30 s = ~37 min. With 5 base models
+that's ~3 hours total. Acceptable.
