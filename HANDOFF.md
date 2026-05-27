@@ -151,8 +151,19 @@ Route B target encodings must smooth toward a global prior to handle
 unseen players. See `docs/superpowers/specs/2026-05-27-aicup-score-improvements-design.md`.
 
 Diagnostic (`artifacts/cv_gap_diagnostic.json`) records the new-CV LGBM
-baseline overall metric and per-seed std. Improvements smaller than one
-std are rejected as noise by every downstream route.
+baseline (mean overall 0.3013) plus **two** std numbers:
+
+- `std_across_seed.overall = 0.00168` — std of the 5 per-seed mean overalls.
+  **This is the noise floor** per spec Section 1.2. Reject any downstream
+  improvement smaller than this.
+- `std_across_fold.overall = 0.00635` — std of all 25 (seed, fold) cells.
+  Larger because it includes within-seed fold-to-fold variance. Useful for
+  spotting unstable folds, NOT the noise floor.
+
+Per-target noise floors (across-seed std):
+- action macro-F1: 0.00525
+- point macro-F1:  0.00506
+- server AUC:      0.00397
 
 Smoothing trick (old-test `serverGetPoint` overlap → 0.95/0.05) stays out
 of every new model's training and OOF. It is only applied when generating

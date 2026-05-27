@@ -26,16 +26,20 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 the new private-safe CV. Every future experiment is measured against these
 numbers; any lift smaller than the across-fold std is treated as noise.
 
-| Target | New CV | Old CV (`lgbm_baseline_cv.json`) | Δ |
-|---|---:|---:|---:|
-| action macro-F1 | 0.2550 | 0.2948 | -0.040 |
-| point  macro-F1 | 0.1711 | 0.2154 | -0.044 |
-| server AUC      | 0.6541 | 0.6016 | +0.052 |
-| **overall**     | **0.3013** | 0.3244 | -0.023 |
-| std overall     | 0.0063 | — | — |
+| Target | New CV | Old CV (`lgbm_baseline_cv.json`) | Δ | **Noise floor** (across-seed std) |
+|---|---:|---:|---:|---:|
+| action macro-F1 | 0.2550 | 0.2948 | -0.040 | 0.00525 |
+| point  macro-F1 | 0.1711 | 0.2154 | -0.044 | 0.00506 |
+| server AUC      | 0.6541 | 0.6016 | +0.052 | 0.00397 |
+| **overall**     | **0.3013** | 0.3244 | -0.023 | **0.00168** |
 
 Key takeaways:
-- **Noise floor: 0.0063 overall.** Reject any A/B/C/Ensemble improvement smaller than this on the new CV.
+- **Noise floor (spec Section 1.2): 0.00168 overall, across-seed std.**
+  Reject any A/B/C/Ensemble improvement smaller than this on the new CV.
+- Earlier commits (`f48385b`, `d8b46fc`, `4629e72`) and HANDOFF erroneously
+  quoted 0.00635 as the noise floor — that was the across-FOLD std (25 cells
+  together). The spec mandates the smaller, stricter across-seed std. The
+  diagnostic JSON now records both; downstream tools use `std_across_seed`.
 - pointId is still the weakest target — confirms the design spec's claim. Route B target encoding is the most plausible lift here.
 - Server AUC went UP under the new CV: mid-rally cuts expose phase 0 / phase 1 where there is more signal than at end-of-rally; suggests the phase-aware blend in Route A Task 8 could compound the gain.
 - Clean public LB (no smoothing) was 0.3264 vs old-CV-overall 0.3244, almost matching. New-CV-overall 0.3013 is therefore the realistic "private-safe" baseline.
@@ -49,16 +53,20 @@ section for the table. Highlights:
 - player_stats clean = 0.3115, confirmed weak; drop or near-zero meta weight.
 
 **Decision framework** (revised — public is not a model-quality oracle):
-- Local CV (25 folds, std 0.0063) is the primary signal — it's built to
-  mimic private. Public LB is one noisy number per submission with no
-  variance estimate.
+- Local CV (5 seeds × 5 folds, **across-seed std 0.00168**) is the primary
+  signal — it's built to mimic private. Public LB is one noisy number per
+  submission with no variance estimate.
 - Public only breaks ties when the local delta is smaller than one local
   std. Never use public to override a clear local verdict.
 - Final submission picks the version with the highest **local** CV overall.
 
 **Re-tune for P2 Route A** under that framework:
-- `lgbm31`: local-tied with lgbm15 (delta -0.0009 << std 0.0063); public
-  breaks tie cleanly (+0.010). Promote to primary base.
+- `lgbm31`: local-tied with lgbm15 on the OLD CV (delta -0.0009; old-CV
+  numbers come from `artifacts/lgbm_baseline_cv.json`, not the new CV).
+  Both are within the new CV's across-seed noise floor of 0.00168; we
+  have not yet rerun leaves=31 under the new CV. Public LB clean breaks
+  the tie cleanly (+0.010). Promote to primary base; re-verify under new
+  CV in P2 Task 2.
 - `lgbm15`: keep as diversity base.
 - `phase_lgbm`: real local-vs-public conflict (local rejects by 1σ,
   public lifts by ~1σ). Keep in base set but DON'T pre-weight — let the

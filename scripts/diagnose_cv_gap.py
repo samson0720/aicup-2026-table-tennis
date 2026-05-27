@@ -91,14 +91,20 @@ def main() -> None:
         print(f"seed={seed} fold={fold}: overall={overall:.5f}")
 
     df = pd.DataFrame(per_fold)
+    metric_cols = ["action_macro_f1", "point_macro_f1", "server_auc", "overall"]
+    by_seed = df.groupby("seed")[metric_cols].mean().reset_index()
     summary = {
         "per_fold": per_fold,
-        "by_seed": (
-            df.groupby("seed")[["action_macro_f1", "point_macro_f1", "server_auc", "overall"]]
-            .mean().reset_index().to_dict("records")
-        ),
-        "mean": df[["action_macro_f1", "point_macro_f1", "server_auc", "overall"]].mean().to_dict(),
-        "std":  df[["action_macro_f1", "point_macro_f1", "server_auc", "overall"]].std().to_dict(),
+        "by_seed": by_seed.to_dict("records"),
+        "mean": df[metric_cols].mean().to_dict(),
+        # across-seed std: std of the 5 seed-level mean numbers. This is the
+        # noise floor defined by the spec Section 1.2 ("any improvement smaller
+        # than the across-seed standard deviation is rejected as noise").
+        "std_across_seed": by_seed[metric_cols].std().to_dict(),
+        # across-fold std: std of all 25 (seed, fold) cells together. Larger
+        # than across-seed std because it includes within-seed fold-to-fold
+        # variance. Useful for spotting unstable folds, NOT the noise floor.
+        "std_across_fold": df[metric_cols].std().to_dict(),
         "old_cv_reference": {
             "source": "artifacts/lgbm_baseline_cv.json",
             "note": "compare overall and per-target macro-F1 against this file's results.sqrt.oof",
@@ -107,8 +113,9 @@ def main() -> None:
     Path("artifacts/cv_gap_diagnostic.json").write_text(
         json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-    print(json.dumps(summary["mean"], indent=2, ensure_ascii=False))
-    print(json.dumps(summary["std"],  indent=2, ensure_ascii=False))
+    print("mean:",            json.dumps(summary["mean"],            indent=2, ensure_ascii=False))
+    print("std_across_seed:", json.dumps(summary["std_across_seed"], indent=2, ensure_ascii=False))
+    print("std_across_fold:", json.dumps(summary["std_across_fold"], indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":
