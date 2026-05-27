@@ -14,11 +14,35 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 | Plan | Tasks | Status |
 |---|---|---|
-| P1 cv-foundation | 1–10 | **DONE** (commits `fd2cf58`..`d8b46fc`) |
-| P2 route-a-postprocess-stack | 1–12 | **next up** |
+| P1 cv-foundation | 1–10 | **DONE** (commits `fd2cf58`..`d8b46fc`, main) |
+| P2 route-a-postprocess-stack | 1–12 | **in progress** on `p2-route-a` branch |
 | P3 route-b-features-chain | 1–10 | pending — independent of P2 |
 | P4 route-c-transformer | 1–6 | pending — needs 3090; independent of P2/P3 |
 | P5 final-ensemble | 1–7 | pending — blocked by P2 + P3 + P4 |
+
+## P2 progress (branch `p2-route-a`)
+
+Commits in order: `8833af7` (T1 oof_loader) → `82eba0c` (T5-T9 helpers + T2
+producer code) → `80dd039` (T3+T4 markov/phase_lgbm refactor) → `a6fe428`
+(T10+T11 stacker assembly + test-time refit).
+
+Status:
+- T1 ✓ scripts/oof_loader.py + tests (4 tests green)
+- T2 ✓ producer code; lgbm15 OOF generated (score 0.3027, matches diagnostic baseline within noise)
+- T3 ✓ markov_oof helper extracted; smoke-tested on 1 fold
+- T4 ✓ phase_lgbm_oof helper extracted (player_stats dropped per F3)
+- T5-T9 ✓ score_oof + postprocess (prior/threshold/blend/pair-prior) + stacker (10 tests green total)
+- T10+T11 ✓ code written
+- T12: pending the lift comparison once full pipeline finishes
+
+Background pipeline queued (`baiax9m3h`):
+1. (running) lgbm31 OOF → markov OOF → phase_lgbm OOF
+2. (queued) predict_test for lgbm15 / lgbm31 / markov / phase_lgbm
+3. (queued) build_route_a_submission → writes artifacts/submission_A_stacked.csv
+
+Total wait ~1.5-2 hours. Resume here when the notification arrives — score
+the stacked OOF against the new-CV noise floor (0.00168) and decide on
+audit F4 (label-collapse fix needed if lift < 0.005).
 
 ## P1 results (baseline locked in)
 
