@@ -7,14 +7,24 @@ import lightgbm as lgb
 import numpy as np
 import pandas as pd
 
-from train_lgbm_baseline import (
-    TARGET_ACTION_CLASSES,
-    TARGET_POINT_CLASSES,
-    add_prefix_features,
-    build_prefix_dataset,
-    class_weights,
-    feature_columns,
-)
+try:
+    from scripts.train_lgbm_baseline import (
+        TARGET_ACTION_CLASSES,
+        TARGET_POINT_CLASSES,
+        add_prefix_features,
+        build_prefix_dataset,
+        class_weights,
+        feature_columns,
+    )
+except ImportError:  # pragma: no cover
+    from train_lgbm_baseline import (
+        TARGET_ACTION_CLASSES,
+        TARGET_POINT_CLASSES,
+        add_prefix_features,
+        build_prefix_dataset,
+        class_weights,
+        feature_columns,
+    )
 
 
 def find_data_dir() -> Path:
