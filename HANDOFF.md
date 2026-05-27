@@ -17,6 +17,36 @@ Third upload was a clean, no-leakage-proxy submission:
 - Public score: `0.3263827`
 - Rank at time checked: `157/335`
 
+## Clean-base public LB probes (2026-05-27, 3-shot probe)
+
+All clean (no old-test smoothing). Compared against the known clean baseline
+`submission_CLEAN_lgbm_sqrt_leaves15.csv = 0.3263827`.
+
+| Submission | Public score | Δ vs leaves15 clean |
+|---|---:|---:|
+| `submission_CLEAN_lgbm_sqrt_leaves31.csv`     | **0.3363696** | **+0.0100** |
+| `submission_phase_lgbm_clean.csv`             | **0.3348781** | **+0.0086** |
+| `submission_lgbm_playerstats_clean.csv`       | 0.3115222     | -0.0149     |
+
+Conclusions used to retune P2 Route A's base set:
+
+1. leaves=31 is the strongest clean base on public LB (was tied with leaves=15
+   on local CV, 0.32350 vs 0.32439). Stacking should treat leaves=31 as the
+   primary base, leaves=15 as the diversity-only addition.
+2. phase_lgbm shows local-vs-public disagreement: local CV rejected it
+   (0.31869 < 0.32439); public LB clean has it +0.0086 above leaves=15.
+   Likely because public LB has more short-prefix (phase 0/1) rallies than
+   our 5-pp phase stratification preserves, and phase_lgbm specializes there.
+   Keep it as a base in P2 with non-trivial weight.
+3. player_stats is confirmed weak by both local and public (-0.037 local,
+   -0.015 public vs leaves=15). Drop it from P2 base set, or assign near-zero
+   meta-learner weight.
+
+New CV ↔ public-clean mapping reference point:
+- clean leaves=15: new CV overall 0.3013 ↔ public 0.3263 (offset ≈ +0.025)
+- This is the only mapping we have so far; do not over-trust the offset for
+  models that perform differently across phases.
+
 ## Important conclusion
 
 The old `Reference_Only_Old_Test_Data/test.csv` leakage was already used for `serverGetPoint`.

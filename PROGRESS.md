@@ -40,6 +40,21 @@ Key takeaways:
 - Server AUC went UP under the new CV: mid-rally cuts expose phase 0 / phase 1 where there is more signal than at end-of-rally; suggests the phase-aware blend in Route A Task 8 could compound the gain.
 - Clean public LB (no smoothing) was 0.3264 vs old-CV-overall 0.3244, almost matching. New-CV-overall 0.3013 is therefore the realistic "private-safe" baseline.
 
+## Public LB probes (2026-05-27)
+
+Three clean variants uploaded; see HANDOFF.md "Clean-base public LB probes"
+section for the table. Highlights:
+- **leaves=31 clean = 0.3364, beats leaves=15 clean 0.3263 by +0.010.**
+- **phase_lgbm clean = 0.3349, beats leaves=15 clean by +0.009** (local-vs-public disagreement).
+- player_stats clean = 0.3115, confirmed weak; drop or near-zero meta weight.
+
+**Re-tune for P2 Route A**: original plan's 5-base set (lgbm15, lgbm31,
+markov, phase_lgbm, player_stats) is updated to prioritize lgbm31 (primary),
+lgbm15 (diversity), phase_lgbm (short-prefix specialist), markov (cheap
+extra signal), and DROP player_stats from the base set OR assign zero
+weight in the meta-learner. The original P2 plan code lists player_stats
+in `MODELS`; remove it when implementing.
+
 ## Known issues to fix when we hit them
 
 Flagged during plan review on 2026-05-27, NOT YET FIXED:
