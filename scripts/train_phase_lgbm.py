@@ -9,15 +9,24 @@ import pandas as pd
 from sklearn.metrics import f1_score, roc_auc_score
 from sklearn.model_selection import GroupKFold
 
-from make_lgbm_submission import align_proba, build_test_dataset, fit_binary_full, fit_multiclass_full
-from train_lgbm_baseline import (
-    TARGET_ACTION_CLASSES,
-    TARGET_POINT_CLASSES,
-    build_prefix_dataset,
-    feature_columns,
-    fit_binary,
-    fit_multiclass,
-)
+try:
+    from scripts.train_lgbm_baseline import (
+        TARGET_ACTION_CLASSES,
+        TARGET_POINT_CLASSES,
+        build_prefix_dataset,
+        feature_columns,
+        fit_binary,
+        fit_multiclass,
+    )
+except ImportError:  # pragma: no cover
+    from train_lgbm_baseline import (
+        TARGET_ACTION_CLASSES,
+        TARGET_POINT_CLASSES,
+        build_prefix_dataset,
+        feature_columns,
+        fit_binary,
+        fit_multiclass,
+    )
 
 
 def find_data_dir() -> Path:
@@ -25,6 +34,91 @@ def find_data_dir() -> Path:
     if not matches:
         raise FileNotFoundError("Could not find AI CUP data directory")
     return matches[0]
+
+
+def phase_lgbm_oof(
+    train_view: pd.DataFrame,
+    valid_view: pd.DataFrame,
+    s_train: pd.DataFrame,
+    s_valid: pd.DataFrame,
+    estimators: int = 180,
+    num_leaves: int = 31,
+    weight_mode: str = "sqrt",
+    min_phase_rows: int = 100,
+) -> dict:
+    """OOF predictions for the phase-specific LGBM on one (seed, fold).
+
+    Within the fold, fit a separate LGBM per phase bucket on the train rows of
+    that phase. Fall back to all train rows if a phase has fewer than
+    `min_phase_rows` train rows (mirrors run_cv).
+
+    Args / Returns: same shape contract as scripts.train_markov_ensemble.markov_oof.
+    """
+    try:
+        from scripts.diagnose_cv_gap import build_one_sample_per_rally
+    except ImportError:  # pragma: no cover
+        from diagnose_cv_gap import build_one_sample_per_rally
+
+    df_train = build_one_sample_per_rally(train_view, s_train)
+    df_valid = build_one_sample_per_rally(valid_view, s_valid)
+    if df_train.empty or df_valid.empty:
+        return {
+            "rally_uid": np.array([], dtype=np.int64),
+            "cut": np.array([], dtype=np.int32),
+            "action": np.zeros((0, len(TARGET_ACTION_CLASSES)), dtype=np.float64),
+            "point": np.zeros((0, len(TARGET_POINT_CLASSES)), dtype=np.float64),
+            "server": np.zeros((0, 1), dtype=np.float64),
+        }
+
+    feats = [c for c in feature_columns(df_train) if c in df_valid.columns]
+    x_train = df_train[feats].reset_index(drop=True)
+    x_valid = df_valid[feats].reset_index(drop=True)
+    df_train = df_train.reset_index(drop=True)
+    df_valid = df_valid.reset_index(drop=True)
+
+    p_action = np.zeros((len(df_valid), len(TARGET_ACTION_CLASSES)), dtype=np.float64)
+    p_point = np.zeros((len(df_valid), len(TARGET_POINT_CLASSES)),  dtype=np.float64)
+    p_server = np.zeros(len(df_valid), dtype=np.float64)
+
+    train_phase = df_train["phase"].to_numpy()
+    valid_phase = df_valid["phase"].to_numpy()
+    for phase in sorted(set(int(p) for p in valid_phase)):
+        val_mask = valid_phase == phase
+        if not val_mask.any():
+            continue
+        trn_mask = train_phase == phase
+        if int(trn_mask.sum()) < min_phase_rows:
+            trn_mask = np.ones_like(train_phase, dtype=bool)
+
+        xt = x_train.iloc[trn_mask]
+        xv = x_valid.iloc[val_mask]
+        ya_t = df_train.loc[trn_mask, "y_actionId"]
+        yp_t = df_train.loc[trn_mask, "y_pointId"]
+        ys_t = df_train.loc[trn_mask, "y_serverGetPoint"]
+        ya_v = df_valid.loc[val_mask, "y_actionId"]
+        yp_v = df_valid.loc[val_mask, "y_pointId"]
+        ys_v = df_valid.loc[val_mask, "y_serverGetPoint"]
+
+        p_action[val_mask] = fit_multiclass(
+            xt, ya_t, xv, ya_v, TARGET_ACTION_CLASSES, weight_mode,
+            8200 + int(phase) * 10, estimators, num_leaves,
+        )
+        p_point[val_mask] = fit_multiclass(
+            xt, yp_t, xv, yp_v, TARGET_POINT_CLASSES, weight_mode,
+            8300 + int(phase) * 10, estimators, num_leaves,
+        )
+        p_server[val_mask] = fit_binary(
+            xt, ys_t, xv, ys_v,
+            8400 + int(phase) * 10, estimators, num_leaves,
+        )
+
+    return {
+        "rally_uid": df_valid["rally_uid"].to_numpy(),
+        "cut": df_valid["target_strikeNumber"].to_numpy(),
+        "action": p_action,
+        "point": p_point,
+        "server": p_server.reshape(-1, 1),
+    }
 
 
 def score(y_action, p_action, y_point, p_point, y_server, p_server) -> dict:
@@ -111,6 +205,13 @@ def run_cv(df: pd.DataFrame, args: argparse.Namespace) -> dict:
 
 
 def make_submission(df: pd.DataFrame, test: pd.DataFrame, args: argparse.Namespace) -> pd.DataFrame:
+    # Local import keeps the module importable when make_lgbm_submission's bare
+    # imports cannot resolve.
+    try:
+        from scripts.make_lgbm_submission import align_proba, build_test_dataset, fit_binary_full, fit_multiclass_full  # noqa: F401
+    except ImportError:
+        from make_lgbm_submission import align_proba, build_test_dataset, fit_binary_full, fit_multiclass_full  # noqa: F401
+
     feats = feature_columns(df)
     test_features = build_test_dataset(test)
     p_action = np.zeros((len(test_features), len(TARGET_ACTION_CLASSES)))

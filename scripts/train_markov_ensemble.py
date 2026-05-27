@@ -10,15 +10,26 @@ import pandas as pd
 from sklearn.metrics import f1_score, roc_auc_score
 from sklearn.model_selection import GroupKFold
 
-from make_lgbm_submission import align_proba, build_test_dataset, fit_binary_full, fit_multiclass_full
-from train_lgbm_baseline import (
-    TARGET_ACTION_CLASSES,
-    TARGET_POINT_CLASSES,
-    build_prefix_dataset,
-    feature_columns,
-    fit_binary,
-    fit_multiclass,
-)
+# Legacy top-level imports re-routed to package paths so the module can be
+# imported as `scripts.train_markov_ensemble` from elsewhere (e.g. produce_base_oof).
+try:
+    from scripts.train_lgbm_baseline import (
+        TARGET_ACTION_CLASSES,
+        TARGET_POINT_CLASSES,
+        build_prefix_dataset,
+        feature_columns,
+        fit_binary,
+        fit_multiclass,
+    )
+except ImportError:  # pragma: no cover - kept so the legacy CLI keeps working from scripts/.
+    from train_lgbm_baseline import (
+        TARGET_ACTION_CLASSES,
+        TARGET_POINT_CLASSES,
+        build_prefix_dataset,
+        feature_columns,
+        fit_binary,
+        fit_multiclass,
+    )
 
 
 ACTION_CONTEXTS = [
@@ -116,6 +127,70 @@ class BackoffBinary:
 
     def predict_proba(self, x: pd.DataFrame) -> np.ndarray:
         return self.model.predict_proba(x)[:, 1]
+
+
+def markov_oof(
+    train_view: pd.DataFrame,
+    valid_view: pd.DataFrame,
+    s_train: pd.DataFrame,
+    s_valid: pd.DataFrame,
+) -> dict:
+    """OOF predictions from the BackoffClassifier (Markov-style) on one (seed, fold).
+
+    Args:
+        train_view: rows belonging to fold-out rallies for this (seed, fold).
+        valid_view: rows belonging to in-fold rallies for this (seed, fold).
+        s_train, s_valid: cv_splits parquet rows for the same seed, on the train
+            and valid folds respectively. Each carries `rally_uid` and `cut_strikeNumber`.
+
+    Returns:
+        dict with keys:
+          rally_uid: int array (one entry per valid rally that had a usable feature row)
+          cut:       int array of cut_strikeNumber, parallel to rally_uid
+          action:    (n, 19) numpy array of action probabilities
+          point:     (n, 10) numpy array of point probabilities
+          server:    (n, 1)  numpy array of P(serverGetPoint=1)
+    """
+    # Lazy import so this module can be loaded without circular dep concerns.
+    try:
+        from scripts.diagnose_cv_gap import build_one_sample_per_rally
+    except ImportError:  # pragma: no cover
+        from diagnose_cv_gap import build_one_sample_per_rally
+
+    df_train = build_one_sample_per_rally(train_view, s_train)
+    df_valid = build_one_sample_per_rally(valid_view, s_valid)
+    if df_train.empty or df_valid.empty:
+        return {
+            "rally_uid": np.array([], dtype=np.int64),
+            "cut": np.array([], dtype=np.int32),
+            "action": np.zeros((0, len(TARGET_ACTION_CLASSES)), dtype=np.float64),
+            "point": np.zeros((0, len(TARGET_POINT_CLASSES)), dtype=np.float64),
+            "server": np.zeros((0, 1), dtype=np.float64),
+        }
+
+    feats = [c for c in feature_columns(df_train) if c in df_valid.columns]
+    x_train, x_valid = df_train[feats], df_valid[feats]
+
+    # Same Backoff config as run_oof().
+    phase_alpha_action = {0: 55.0, 1: 35.0, 2: 18.0}
+    phase_alpha_point = {0: 60.0, 1: 40.0, 2: 20.0}
+    phase_alpha_server = {0: 80.0, 1: 55.0, 2: 35.0}
+
+    action_model = BackoffClassifier(TARGET_ACTION_CLASSES, ACTION_CONTEXTS, phase_alpha_action, 25.0)
+    point_model = BackoffClassifier(TARGET_POINT_CLASSES, POINT_CONTEXTS, phase_alpha_point, 25.0)
+    server_model = BackoffBinary(SERVER_CONTEXTS, phase_alpha_server, 40.0)
+
+    p_action = action_model.fit(x_train, df_train["y_actionId"]).predict_proba(x_valid)
+    p_point = point_model.fit(x_train, df_train["y_pointId"]).predict_proba(x_valid)
+    p_server = server_model.fit(x_train, df_train["y_serverGetPoint"]).predict_proba(x_valid)
+
+    return {
+        "rally_uid": df_valid["rally_uid"].to_numpy(),
+        "cut": df_valid["target_strikeNumber"].to_numpy(),
+        "action": p_action,
+        "point": p_point,
+        "server": p_server.reshape(-1, 1),
+    }
 
 
 def score_predictions(
@@ -267,6 +342,13 @@ def run_oof(df: pd.DataFrame, args: argparse.Namespace) -> dict:
 
 
 def make_submission(df: pd.DataFrame, test: pd.DataFrame, args: argparse.Namespace, weights: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
+    # Local import so the module can be imported without make_lgbm_submission
+    # being on the import path (it uses bare 'from train_lgbm_baseline import ...').
+    try:
+        from scripts.make_lgbm_submission import align_proba, build_test_dataset, fit_binary_full, fit_multiclass_full  # noqa: F401
+    except ImportError:
+        from make_lgbm_submission import align_proba, build_test_dataset, fit_binary_full, fit_multiclass_full  # noqa: F401
+
     feats = feature_columns(df)
     x_train = df[feats]
     y_action = df["y_actionId"]
