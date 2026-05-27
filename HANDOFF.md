@@ -80,3 +80,38 @@ Key conclusion:
 ```text
 artifacts/submission_RECOMMENDED_upload.csv
 ```
+
+## Validation strategy (post-2026-05-27)
+
+Old `GroupKFold by match` mismatches `test_new.csv`, which is built from
+mid-rally cut points, not held-out matches. New CV (`scripts/cv_splits.py`,
+materialized to `artifacts/cv_splits.parquet`):
+
+- Per-rally random cut point in `[2, rally_len]`, mimicking `test_new`.
+- Match-aware grouping: every rally of a match shares one fold per seed.
+- Phase-stratified greedy round-robin: each match is assigned to the fold
+  with the lowest current load in that match's dominant phase bucket.
+- 5 seeds × 5 folds = 25 (seed, fold) cells, ~2999 rallies each.
+- Locked-in invariants in `tests/test_cv_splits.py`: schema, row count,
+  match grouping, fold range, phase share within 5pp, cut validity,
+  cross-seed cut variance, iter_cv_folds no-leak.
+
+Overlap analysis (from design spec): 0 of 216 train matches reappear in
+79 test matches; 40 of 71 test players appear in train, 31 are unseen.
+Route B target encodings must smooth toward a global prior to handle
+unseen players. See `docs/superpowers/specs/2026-05-27-aicup-score-improvements-design.md`.
+
+Diagnostic (`artifacts/cv_gap_diagnostic.json`) records the new-CV LGBM
+baseline overall metric and per-seed std. Improvements smaller than one
+std are rejected as noise by every downstream route.
+
+Smoothing trick (old-test `serverGetPoint` overlap → 0.95/0.05) stays out
+of every new model's training and OOF. It is only applied when generating
+the `submission_FINAL_smooth.csv` public-leaderboard backup in Section 5
+of the design spec.
+
+## Plan execution status
+
+The active plan is broken into 5 files under `docs/superpowers/plans/`
+(P1 CV foundation → P5 final ensemble). See `PROGRESS.md` for current
+task status and known plan-review issues to fix during execution.
