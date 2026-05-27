@@ -18,7 +18,7 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 | P2 route-a-postprocess-stack | 1–12 | **DONE** on `p2-route-a` branch |
 | P3 route-b-features-chain | 1–10 | **DONE** on `p2-route-a` branch |
 | P4 route-c-transformer | 1–6 | DONE as rejected weak base — GPU path works, 2-epoch OOF below noise gate |
-| P5 final-ensemble | 1–7 | pending — blocked by P2 + P3 + P4 |
+| P5 final-ensemble | 1–7 | DONE — final A+B stack built, Route C excluded |
 
 ## P2 Route A results (2026-05-28)
 
@@ -157,6 +157,37 @@ Decision: reject current Route C from final stack. It is far below lgbm15
 (`0.3027`) and Route B (`0.3178`), so it is not a useful base. A single
 10-epoch pilot on seed 11 / fold 0 improved that fold from `0.2328` to
 `0.2915`, but still did not beat lgbm15 locally; full long training is deferred.
+
+## P5 Final ensemble results (2026-05-28)
+
+Implemented `scripts/build_final_submissions.py`.
+
+Final stack inputs:
+
+- Route A raw bases: `lgbm15`, `lgbm31`, `markov`, `phase_lgbm`.
+- Route B chain bases: `chain_action`, `chain_point`, `chain_server`.
+- Route C `seq` excluded because its OOF overall is `0.2400`.
+
+Final OOF score (`artifacts/final_scores.json`):
+
+| action F1 | point F1 | server AUC | overall |
+|---:|---:|---:|---:|
+| 0.2540 | 0.2352 | 0.7702 | **0.3497** |
+
+Lift comparisons:
+
+- vs best base `lgbm15`: `+0.0471`.
+- vs Route A standalone `0.3423`: `+0.0075`.
+- vs Route B standalone `0.3178`: `+0.0319`.
+
+Generated submissions:
+
+- `artifacts/submission_FINAL_safe.csv`: private-safe model ensemble, no old-test smoothing.
+- `artifacts/submission_FINAL_smooth.csv`: same predictions with old-test server smoothing
+  on 1,236 overlap rows; use only as the public-leaderboard backup.
+
+Submission guardrail passed for both files: 1,845 unique test rallies, valid
+columns, valid action/point class ranges, server probabilities in `[0, 1]`.
 
 ## P1 results (baseline locked in)
 
