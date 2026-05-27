@@ -20,6 +20,25 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 | P4 route-c-transformer | 1–6 | pending — needs 3090; independent of P2/P3 |
 | P5 final-ensemble | 1–7 | pending — blocked by P2 + P3 + P4 |
 
+## P2 partial results so far (2026-05-28)
+
+LGBM OOFs done. Apples-to-apples NEW CV scores via score_oof:
+
+| Model     | action F1 | point F1 | server AUC | overall |
+|-----------|----------:|---------:|-----------:|--------:|
+| lgbm15    | 0.2587    | 0.1730   | 0.6499     | **0.3027** |
+| lgbm31    | 0.2518    | 0.1704   | 0.6469     | **0.2983** |
+
+**Strongest local-vs-public conflict yet**: lgbm15 beats lgbm31 by **+0.0044**
+on new CV (>1σ above noise floor 0.00168). But on clean public LB, leaves=31
+WON by +0.010. The two signals genuinely disagree on the same submission set.
+
+Implication: when stacker weights are learned on local OOF (per spec 5.3),
+the meta-learner will probably weight lgbm15 higher than lgbm31. That's
+correct for private LB — we're explicitly NOT optimizing public — but means
+the final submission may have a LOWER public score than RECOMMENDED 0.4102
+even if it's BETTER on private. Don't panic if public clean reads below 0.33.
+
 ## P2 progress (branch `p2-route-a`)
 
 Commits in order: `8833af7` (T1 oof_loader) → `82eba0c` (T5-T9 helpers + T2
