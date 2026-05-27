@@ -4,5 +4,6 @@
 .catboost_info/
 catboost_info/
 artifacts/*.parquet
+artifacts/oof/*.parquet
 artifacts/*.pkl
 artifacts/*.joblib

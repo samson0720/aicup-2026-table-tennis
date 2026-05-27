@@ -48,7 +48,9 @@ from scripts.stacker import stacked_oof
 
 
 MODELS = ["lgbm15", "lgbm31", "markov", "phase_lgbm"]
-SERVER_BLEND_WEIGHTS = {0: 0.7, 1: 0.4, 2: 0.0}  # initial values, spec 2.4
+# OOF rejected the initial phase-prior blend ({0: 0.7, 1: 0.4, 2: 0.0}):
+# raw stack server AUC 0.76432 vs blended 0.74678. Keep Route A local-CV driven.
+SERVER_BLEND_WEIGHTS = {0: 0.0, 1: 0.0, 2: 0.0}
 
 
 def _data_dir() -> Path:
@@ -101,12 +103,14 @@ def main() -> None:
     Path("artifacts/base_oof_scores.json").write_text(json.dumps(base_scores, indent=2, ensure_ascii=False))
 
     # ---- Step 2: per-rally label and match table ----
-    # Resolve labels from one OOF parquet (uses cut_strikeNumber to join the cut target).
+    # attach_labels joins cut targets but not match, so pull match from train.
     sample = read_oof("lgbm15", "action")
+    match_per_rally = train.drop_duplicates("rally_uid")[["rally_uid", "match"]]
     attached = (
         attach_labels(sample, train)
-        [["rally_uid", "match", "actionId", "pointId", "serverGetPoint"]]
+        [["rally_uid", "actionId", "pointId", "serverGetPoint"]]
         .drop_duplicates("rally_uid")
+        .merge(match_per_rally, on="rally_uid", how="left")
     )
 
     # ---- Step 3: per-target stack ----

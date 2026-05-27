@@ -15,19 +15,41 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 | Plan | Tasks | Status |
 |---|---|---|
 | P1 cv-foundation | 1–10 | **DONE** (commits `fd2cf58`..`d8b46fc`, main) |
-| P2 route-a-postprocess-stack | 1–12 | **in progress** on `p2-route-a` branch |
+| P2 route-a-postprocess-stack | 1–12 | **DONE** on `p2-route-a` branch |
 | P3 route-b-features-chain | 1–10 | pending — independent of P2 |
 | P4 route-c-transformer | 1–6 | pending — needs 3090; independent of P2/P3 |
 | P5 final-ensemble | 1–7 | pending — blocked by P2 + P3 + P4 |
 
-## P2 partial results so far (2026-05-28)
+## P2 Route A results (2026-05-28)
 
-LGBM OOFs done. Apples-to-apples NEW CV scores via score_oof:
+All 24 base parquet artifacts are present under `artifacts/oof/`:
+4 models × 3 targets × `{OOF, test}`. Final builder writes
+`artifacts/submission_A_stacked.csv` with 1,845 test rallies.
+
+Apples-to-apples NEW CV base scores via `score_oof`:
 
 | Model     | action F1 | point F1 | server AUC | overall |
 |-----------|----------:|---------:|-----------:|--------:|
 | lgbm15    | 0.2587    | 0.1730   | 0.6499     | **0.3027** |
 | lgbm31    | 0.2518    | 0.1704   | 0.6469     | **0.2983** |
+| markov    | 0.1592    | 0.0911   | 0.5841     | **0.2170** |
+| phase_lgbm| 0.2426    | 0.1584   | 0.6444     | **0.2893** |
+
+Route A stacked OOF (`artifacts/route_a_scores.json`):
+
+| Variant | action F1 | point F1 | server AUC | overall | lift vs lgbm15 |
+|---|---:|---:|---:|---:|---:|
+| raw stack | 0.2412 | 0.2324 | 0.7643 | **0.3423** | **+0.0396** |
+| final selected | 0.2412 | 0.2324 | 0.7643 | **0.3423** | **+0.0396** |
+
+Lift is far above the overall noise floor (`0.00168`) and the 3σ health
+threshold (`0.005`), so audit F4's un-averaged `(rally, seed)` stacker rewrite
+is NOT needed for P2.
+
+The initial phase-prior server blend `{0: 0.7, 1: 0.4, 2: 0.0}` was rejected
+by local OOF: server AUC fell from `0.7643` to `0.7468`, costing `0.0035`
+overall (> noise floor). Route A therefore uses pure stacked server
+probabilities (`SERVER_BLEND_WEIGHTS = {0: 0.0, 1: 0.0, 2: 0.0}`).
 
 **Strongest local-vs-public conflict yet**: lgbm15 beats lgbm31 by **+0.0044**
 on new CV (>1σ above noise floor 0.00168). But on clean public LB, leaves=31
@@ -51,23 +73,14 @@ Status:
 - T3 ✓ markov_oof helper extracted; smoke-tested on 1 fold
 - T4 ✓ phase_lgbm_oof helper extracted (player_stats dropped per F3)
 - T5-T9 ✓ score_oof + postprocess (prior/threshold/blend/pair-prior) + stacker (10 tests green total)
-- T10+T11 ✓ code written
-- T12: pending the lift comparison once full pipeline finishes
-
-Background pipeline queued (`baiax9m3h`):
-1. (running) lgbm31 OOF → markov OOF → phase_lgbm OOF
-2. (queued) predict_test for lgbm15 / lgbm31 / markov / phase_lgbm
-3. (queued) build_route_a_submission → writes artifacts/submission_A_stacked.csv
-
-Total wait ~1.5-2 hours. Resume here when the notification arrives — score
-the stacked OOF against the new-CV noise floor (0.00168) and decide on
-audit F4 (label-collapse fix needed if lift < 0.005).
+- T10+T11 ✓ submission assembly + test-time refit written and executed
+- T12 ✓ lift quantified: `0.3423 - 0.3027 = +0.0396`; P2 accepted
 
 ## P1 results (baseline locked in)
 
 `scripts/diagnose_cv_gap.py` re-ran LGBM sqrt/leaves=15 (180 estimators) on
 the new private-safe CV. Every future experiment is measured against these
-numbers; any lift smaller than the across-fold std is treated as noise.
+numbers; any lift smaller than the across-seed std is treated as noise.
 
 | Target | New CV | Old CV (`lgbm_baseline_cv.json`) | Δ | **Noise floor** (across-seed std) |
 |---|---:|---:|---:|---:|
