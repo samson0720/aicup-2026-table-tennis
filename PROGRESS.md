@@ -17,7 +17,7 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 | P1 cv-foundation | 1–10 | **DONE** (commits `fd2cf58`..`d8b46fc`, main) |
 | P2 route-a-postprocess-stack | 1–12 | **DONE** on `p2-route-a` branch |
 | P3 route-b-features-chain | 1–10 | **DONE** on `p2-route-a` branch |
-| P4 route-c-transformer | 1–6 | pending — needs 3090; independent of P2/P3 |
+| P4 route-c-transformer | 1–6 | in progress — GPU gate passed with escalated `CUDA_VISIBLE_DEVICES=0` |
 | P5 final-ensemble | 1–7 | pending — blocked by P2 + P3 + P4 |
 
 ## P2 Route A results (2026-05-28)
@@ -111,6 +111,27 @@ Generated submission:
   `artifacts/oof/chain_action_action_test.parquet`,
   `artifacts/oof/chain_point_point_test.parquet`,
   `artifacts/oof/chain_server_server_test.parquet`.
+
+## P4 Route C progress (2026-05-28)
+
+GPU gate details:
+
+- Inside the default sandbox, PyTorch cannot see CUDA and `nvidia-smi` cannot
+  communicate with the driver.
+- Outside the sandbox via approved escalated commands, `nvidia-smi` sees:
+  GTX 1080 and RTX 3090.
+- CUDA device ordering differs from `nvidia-smi`: use
+  `env CUDA_VISIBLE_DEVICES=0 conda run -n aicup-tt ...` to expose the RTX
+  3090 as PyTorch device 0. `CUDA_VISIBLE_DEVICES=1` maps to the GTX 1080.
+
+Implemented P4 foundation:
+
+- `scripts/seq_dataset.py`: `RallyPrefixDataset`, masks, padding, and collate.
+- `scripts/seq_model.py`: small multi-task Transformer with action/point/server heads.
+- `tests/test_seq_dataset.py` and `tests/test_seq_model.py`: 5 tests for shape,
+  label-stroke exclusion, collate, forward pass, and parameter sanity.
+
+Validation: full `pytest -q` passes with 32 tests.
 
 ## P1 results (baseline locked in)
 
