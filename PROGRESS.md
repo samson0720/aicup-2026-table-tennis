@@ -128,10 +128,17 @@ Implemented P4 foundation:
 
 - `scripts/seq_dataset.py`: `RallyPrefixDataset`, masks, padding, and collate.
 - `scripts/seq_model.py`: small multi-task Transformer with action/point/server heads.
+- `scripts/train_seq_transformer.py`: fold-level training/smoke script with AMP support.
 - `tests/test_seq_dataset.py` and `tests/test_seq_model.py`: 5 tests for shape,
   label-stroke exclusion, collate, forward pass, and parameter sanity.
 
-Validation: full `pytest -q` passes with 32 tests.
+Validation:
+
+- Full `pytest -q` passes with 32 tests.
+- 3090 smoke command passed:
+  `env CUDA_VISIBLE_DEVICES=0 conda run -n aicup-tt python -m scripts.train_seq_transformer --seed 11 --fold 0 --epochs 1 --batch-size 64 --d-model 64 --layers 1 --ffn 128 --max-train 256 --max-valid 128`
+  printed `device=cuda`, `NVIDIA GeForce RTX 3090`, one train loss, and
+  `valid_pred_rows=128`.
 
 ## P1 results (baseline locked in)
 

@@ -81,4 +81,8 @@ class RallyPrefixDataset(Dataset):
 
 def collate_batch(items: list[dict]) -> dict[str, torch.Tensor]:
     keys = ("tokens", "floats", "mask", "y_action", "y_point", "y_server")
-    return {key: torch.stack([item[key] for item in items]) for key in keys}
+    out = {key: torch.stack([item[key] for item in items]) for key in keys}
+    out["rally_uid"] = torch.tensor([int(item["rally_uid"]) for item in items], dtype=torch.long)
+    out["fold"] = torch.tensor([int(item["fold"]) for item in items], dtype=torch.long)
+    out["target_strike"] = torch.tensor([int(item["target_strike"]) for item in items], dtype=torch.long)
+    return out
