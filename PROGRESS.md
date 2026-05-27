@@ -48,12 +48,26 @@ section for the table. Highlights:
 - **phase_lgbm clean = 0.3349, beats leaves=15 clean by +0.009** (local-vs-public disagreement).
 - player_stats clean = 0.3115, confirmed weak; drop or near-zero meta weight.
 
-**Re-tune for P2 Route A**: original plan's 5-base set (lgbm15, lgbm31,
-markov, phase_lgbm, player_stats) is updated to prioritize lgbm31 (primary),
-lgbm15 (diversity), phase_lgbm (short-prefix specialist), markov (cheap
-extra signal), and DROP player_stats from the base set OR assign zero
-weight in the meta-learner. The original P2 plan code lists player_stats
-in `MODELS`; remove it when implementing.
+**Decision framework** (revised — public is not a model-quality oracle):
+- Local CV (25 folds, std 0.0063) is the primary signal — it's built to
+  mimic private. Public LB is one noisy number per submission with no
+  variance estimate.
+- Public only breaks ties when the local delta is smaller than one local
+  std. Never use public to override a clear local verdict.
+- Final submission picks the version with the highest **local** CV overall.
+
+**Re-tune for P2 Route A** under that framework:
+- `lgbm31`: local-tied with lgbm15 (delta -0.0009 << std 0.0063); public
+  breaks tie cleanly (+0.010). Promote to primary base.
+- `lgbm15`: keep as diversity base.
+- `phase_lgbm`: real local-vs-public conflict (local rejects by 1σ,
+  public lifts by ~1σ). Keep in base set but DON'T pre-weight — let the
+  meta-learner decide based on OOF correlation/diversity.
+- `markov`: keep as cheap extra signal (99.7% agreement with lgbm15,
+  near-duplicate but might give the stacker a stable anchor).
+- `player_stats`: BOTH local and public agree it's bad. Drop from base set
+  or assign zero meta weight. Remove from `MODELS` list in
+  `scripts/build_route_a_submission.py` / `scripts/produce_base_oof.py`.
 
 ## Known issues to fix when we hit them
 

@@ -28,19 +28,38 @@ All clean (no old-test smoothing). Compared against the known clean baseline
 | `submission_phase_lgbm_clean.csv`             | **0.3348781** | **+0.0086** |
 | `submission_lgbm_playerstats_clean.csv`       | 0.3115222     | -0.0149     |
 
-Conclusions used to retune P2 Route A's base set:
+Conclusions used to retune P2 Route A's base set.
 
-1. leaves=31 is the strongest clean base on public LB (was tied with leaves=15
-   on local CV, 0.32350 vs 0.32439). Stacking should treat leaves=31 as the
-   primary base, leaves=15 as the diversity-only addition.
-2. phase_lgbm shows local-vs-public disagreement: local CV rejected it
-   (0.31869 < 0.32439); public LB clean has it +0.0086 above leaves=15.
-   Likely because public LB has more short-prefix (phase 0/1) rallies than
-   our 5-pp phase stratification preserves, and phase_lgbm specializes there.
-   Keep it as a base in P2 with non-trivial weight.
-3. player_stats is confirmed weak by both local and public (-0.037 local,
-   -0.015 public vs leaves=15). Drop it from P2 base set, or assign near-zero
-   meta-learner weight.
+Decision framework (revised after careful thought about variance):
+
+- **Local CV is the primary go/no-go signal.** It is built to mimic private
+  LB (per-rally cuts + match-grouped) and has 25 independent folds giving
+  std=0.0063. Public LB is one number per submission with no variance
+  estimate -- a single noisy reading.
+- **Public LB acts as a tie-breaker only** when the local delta is smaller
+  than one local std (i.e., local cannot tell which of two models wins).
+- Never use public to override a clear local-CV verdict, because that
+  optimizes for the public sample, not the private one.
+
+Applied to the 3 probes above:
+
+1. **leaves=31 vs leaves=15: local says tied** (delta -0.0009 << std 0.0063).
+   Public breaks the tie cleanly in favor of leaves=31 (+0.010). Promote
+   leaves=31 to the primary stacking base; keep leaves=15 for diversity.
+2. **phase_lgbm vs leaves=15 baseline: real disagreement.** Local rejects
+   it (-0.0057, about 1 std worse). Public clean says +0.0086 (about 1
+   std better). With unknown public variance, we cannot tell whether the
+   public lift is a sample fluke or a genuine phase-distribution effect.
+   Keep phase_lgbm in the base set but do not pre-weight it -- let the
+   meta-learner decide. If its OOF probabilities are diverse and
+   informative, meta will pick it up; if not, weight goes to ~0.
+3. **player_stats: both signals agree it is bad.** Drop from the base set
+   or zero its meta weight.
+
+Final submission selection still follows the design spec's rule: pick the
+version with the highest **local-CV** overall, not the highest public LB.
+Public is a sanity check (if local and public diverge by more than ~0.05,
+suspect a training-pipeline bug) and a tie-breaker, nothing more.
 
 New CV ↔ public-clean mapping reference point:
 - clean leaves=15: new CV overall 0.3013 ↔ public 0.3263 (offset ≈ +0.025)
