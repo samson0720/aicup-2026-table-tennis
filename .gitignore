@@ -8,3 +8,4 @@ artifacts/oof/*.parquet
 artifacts/*.pkl
 artifacts/*.joblib
 artifacts/*_smoke_run_log.json
+artifacts/seq_pilot*_run_log.json

@@ -1,0 +1,11 @@
+{
+  "action_macro_f1_raw": 0.15497600749528995,
+  "point_macro_f1_raw": 0.1386040305961086,
+  "server_auc": 0.6128914746202373,
+  "overall_raw": 0.24001031016060687,
+  "action_macro_f1": 0.0,
+  "point_macro_f1": 0.08259836536218279,
+  "overall": 0.24001031016060687,
+  "selected": "raw",
+  "note": "prior+threshold was rejected for Route C 2-epoch OOF because it reduced overall to 0.1556"
+}

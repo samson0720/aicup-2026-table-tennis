@@ -1,0 +1,22 @@
+{
+  "model_name": "seq",
+  "seeds": [
+    11,
+    22,
+    33,
+    44,
+    55
+  ],
+  "folds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "rows": 74975,
+  "epochs": 2,
+  "batch_size": 256,
+  "d_model": 128,
+  "layers": 4
+}

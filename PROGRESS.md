@@ -17,7 +17,7 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 | P1 cv-foundation | 1–10 | **DONE** (commits `fd2cf58`..`d8b46fc`, main) |
 | P2 route-a-postprocess-stack | 1–12 | **DONE** on `p2-route-a` branch |
 | P3 route-b-features-chain | 1–10 | **DONE** on `p2-route-a` branch |
-| P4 route-c-transformer | 1–6 | in progress — GPU gate passed with escalated `CUDA_VISIBLE_DEVICES=0` |
+| P4 route-c-transformer | 1–6 | DONE as rejected weak base — GPU path works, 2-epoch OOF below noise gate |
 | P5 final-ensemble | 1–7 | pending — blocked by P2 + P3 + P4 |
 
 ## P2 Route A results (2026-05-28)
@@ -136,9 +136,27 @@ Validation:
 
 - Full `pytest -q` passes with 32 tests.
 - 3090 smoke command passed:
-  `env CUDA_VISIBLE_DEVICES=0 conda run -n aicup-tt python -m scripts.train_seq_transformer --seed 11 --fold 0 --epochs 1 --batch-size 64 --d-model 64 --layers 1 --ffn 128 --max-train 256 --max-valid 128`
+  `env CUDA_VISIBLE_DEVICES=0 conda run -n aicup-tt python -m scripts.train_seq_transformer --seeds 11 --fold 0 --epochs 1 --batch-size 64 --d-model 64 --layers 1 --ffn 128 --max-train 256 --max-valid 128`
   printed `device=cuda`, `NVIDIA GeForce RTX 3090`, one train loss, and
   `valid_pred_rows=128`.
+
+Full 25-fold OOF run (5 seeds × 5 folds, 2 epochs) completed on RTX 3090:
+
+- Command:
+  `env CUDA_VISIBLE_DEVICES=0 conda run -n aicup-tt python -u -m scripts.train_seq_transformer --seeds 11 22 33 44 55 --fold -1 --epochs 2 --batch-size 256 --model-name seq --write-oof --write-partial`
+- Outputs:
+  `artifacts/oof/seq_action.parquet`,
+  `artifacts/oof/seq_point.parquet`,
+  `artifacts/oof/seq_server.parquet`, each with 74,975 rows.
+- OOF score (`artifacts/route_c_seq_scores.json`), selected raw because
+  prior+threshold hurt this model:
+  action F1 `0.1550`, point F1 `0.1386`, server AUC `0.6129`,
+  overall **`0.2400`**.
+
+Decision: reject current Route C from final stack. It is far below lgbm15
+(`0.3027`) and Route B (`0.3178`), so it is not a useful base. A single
+10-epoch pilot on seed 11 / fold 0 improved that fold from `0.2328` to
+`0.2915`, but still did not beat lgbm15 locally; full long training is deferred.
 
 ## P1 results (baseline locked in)
 
