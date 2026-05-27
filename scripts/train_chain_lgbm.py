@@ -20,6 +20,7 @@ import pandas as pd
 from sklearn.metrics import f1_score, roc_auc_score
 
 from scripts.oof_loader import write_oof
+from scripts.postprocess import apply_thresholds, prior_correct, tune_thresholds
 from scripts.score_oof import overall
 from scripts.train_lgbm_baseline import (
     TARGET_ACTION_CLASSES,
@@ -166,28 +167,61 @@ def score_chain() -> dict[str, float]:
     point = point.merge(labels, on=["rally_uid", "seed", "fold"], how="left")
     server = server.merge(labels, on=["rally_uid", "seed", "fold"], how="left")
 
+    action_probs = action[[f"p_{i}" for i in range(N_ACTION)]].to_numpy()
+    point_probs = point[[f"p_{i}" for i in range(N_POINT)]].to_numpy()
+
+    action_f1_raw = float(f1_score(
+        action["y_actionId"],
+        action_probs.argmax(axis=1),
+        labels=TARGET_ACTION_CLASSES,
+        average="macro",
+        zero_division=0,
+    ))
+    point_f1_raw = float(f1_score(
+        point["y_pointId"],
+        point_probs.argmax(axis=1),
+        labels=TARGET_POINT_CLASSES,
+        average="macro",
+        zero_division=0,
+    ))
+
+    action_prior = np.bincount(action["y_actionId"], minlength=N_ACTION).astype(float)
+    action_prior /= action_prior.sum()
+    point_prior = np.bincount(point["y_pointId"], minlength=N_POINT).astype(float)
+    point_prior /= point_prior.sum()
+
+    action_corrected = prior_correct(action_probs, action_prior)
+    point_corrected = prior_correct(point_probs, point_prior)
+    action_thresholds = tune_thresholds(action_corrected, action["y_actionId"].to_numpy(), N_ACTION)
+    point_thresholds = tune_thresholds(point_corrected, point["y_pointId"].to_numpy(), N_POINT)
+
     action_f1 = float(f1_score(
         action["y_actionId"],
-        action[[f"p_{i}" for i in range(N_ACTION)]].to_numpy().argmax(axis=1),
+        apply_thresholds(action_corrected, action_thresholds),
         labels=TARGET_ACTION_CLASSES,
         average="macro",
         zero_division=0,
     ))
     point_f1 = float(f1_score(
         point["y_pointId"],
-        point[[f"p_{i}" for i in range(N_POINT)]].to_numpy().argmax(axis=1),
+        apply_thresholds(point_corrected, point_thresholds),
         labels=TARGET_POINT_CLASSES,
         average="macro",
         zero_division=0,
     ))
     server_auc = float(roc_auc_score(server["y_serverGetPoint"], server["p_1"]))
     out = {
+        "action_macro_f1_raw": action_f1_raw,
+        "point_macro_f1_raw": point_f1_raw,
+        "overall_raw": overall(action_f1_raw, point_f1_raw, server_auc),
         "action_macro_f1": action_f1,
         "point_macro_f1": point_f1,
         "server_auc": server_auc,
         "overall": overall(action_f1, point_f1, server_auc),
     }
     Path("artifacts/route_b_chain_scores.json").write_text(json.dumps(out, indent=2))
+    Path("artifacts/route_b_thr_action.json").write_text(json.dumps(action_thresholds.tolist()))
+    Path("artifacts/route_b_thr_point.json").write_text(json.dumps(point_thresholds.tolist()))
     return out
 
 
