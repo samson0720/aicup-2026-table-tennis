@@ -7,3 +7,4 @@ artifacts/*.parquet
 artifacts/oof/*.parquet
 artifacts/*.pkl
 artifacts/*.joblib
+artifacts/*_smoke_run_log.json
