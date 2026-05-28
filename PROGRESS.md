@@ -1,6 +1,6 @@
 # AI Cup 2026 — Score-Improvement Plan Execution Progress
 
-Status as of 2026-05-27. Updated by the active AI agent after every plan task.
+Status as of 2026-05-28. Updated by the active AI agent after every plan task.
 Source-of-truth for the next agent: read this BEFORE touching code.
 
 ## CRITICAL CORRECTION (2026-05-28): seed-averaging inflated the stack scores
@@ -63,6 +63,30 @@ in-sample threshold tuning as the cause, only +0.005), `scripts/diag_perrow_vs_s
 
 NEXT: use the per-row score (0.3206) as the honest ruler for ANY future "make it
 stronger" work. Never compare a seed-averaged number against an all-cuts number.
+
+## Sequence-model pilot results (2026-05-28)
+
+Plan: `docs/superpowers/plans/2026-05-28-aicup-sequence-model-pilot.md`,
+Phase 1 Tasks 1-6. Slice: seed 11 x folds 0-2, 8,960 per-row examples. All
+numbers below use honest per-row scoring; no seed averaging.
+
+Winning pilot config: `--d-model 256 --layers 4 --nhead 4 --ffn 768
+--dropout 0.2 --batch-size 256 --lr 3e-4`. Best monitor epochs were fold0=26,
+fold1=34, fold2=48 (median 34).
+
+| model      | action F1 | point F1 | server AUC | overall |
+|------------|----------:|---------:|-----------:|--------:|
+| lgbm15     | 0.2551    | 0.1619   | 0.6486     | 0.2965  |
+| seq best   | 0.2425    | 0.1618   | 0.6166     | 0.2850  |
+
+Standalone seq is not better than lgbm15, but it adds diversity to the stack:
+existing 5 bases overall **0.3115** vs existing+seq best **0.3168**, lift
+**+0.0054**. This is above the 0.00168 noise floor (~3.2x).
+
+VERDICT: **GREEN** by the planned ensemble-lift gate. Decision: Phase 2 is
+eligible, but execution is paused here pending human approval per the handoff
+instruction. If Phase 2 is approved, start with Task 8's 15-minute design
+confirmation before coding test-time inference.
 
 ## Where we are
 
