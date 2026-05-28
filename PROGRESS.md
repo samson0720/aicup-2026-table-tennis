@@ -88,6 +88,47 @@ eligible, but execution is paused here pending human approval per the handoff
 instruction. If Phase 2 is approved, start with Task 8's 15-minute design
 confirmation before coding test-time inference.
 
+## Sequence-model PHASE 2 result — seq2 REJECTED (2026-05-28)
+
+Phase 2 (plan Tasks 7-10) executed after the GREEN pilot. Honest per-row
+ruler throughout; no seed-averaging.
+
+- **Task 7 — full 25-fold seq2 OOF** (`seq2_{action,point,server}.parquet`,
+  74,975 rows each; winning config d-model 256, ffn 768, dropout 0.2; 25/25
+  cells early-stopped, median best epoch 33). Standalone honest (argmax):
+  action 0.2394, point 0.1708, server AUC 0.6262, overall **0.2893** — below
+  lgbm15 0.3027. Commit `ee3e639`.
+- **Task 8 — test inference**: added `--predict-test` to
+  `scripts/train_seq_pilot.py` (full-train single-seed model, fixed 33 epochs,
+  no held-out; synthetic-cut test dataset reusing `RallyPrefixDataset`
+  unchanged — cut = max observed strikeNumber + 1, prefix = all observed
+  strokes; `test_new.csv` has no `serverGetPoint`, so a placeholder label is
+  added and ignored). Writes `seq2_{target}_test.parquet` (1845 rows, base
+  schema). `tests/test_seq_test_inference.py` green. Commit `9af9db5`.
+- **Task 9 — integration**: added seq2 to `build_final_perrow.py` BASES and
+  rebuilt. seq2 OOF keys verified identical to the other bases (inner-join
+  keeps all 74,975 rows, so the comparison is apples-to-apples).
+
+| config | action | point | server | overall | lift vs 0.3206 |
+|---|---:|---:|---:|---:|---:|
+| 5-base (production) | 0.28938 | 0.18416 | 0.65569 | **0.32056** | — |
+| +seq2 (all 3 targets) | 0.29186 | 0.18361 | 0.65674 | 0.32154 | +0.00098 |
+| +seq2 (action only)   | 0.29186 | 0.18416 | 0.65569 | 0.32155 | +0.00099 |
+
+**VERDICT: seq2 REJECTED from the production ensemble.** Honest overall lift is
++0.00098 (all-3) / +0.00099 (action-only), both **below the 0.00168 noise
+floor**. seq2's only real effect is action +0.00248, itself below the
+action-specific noise floor (0.00525). The pilot slice GREEN (+0.0054 on
+seed11×folds0-2) did NOT generalize to the full population — exactly what the
+across-seed noise floor is designed to catch. Per the project rule (reject
+sub-noise changes; upload only if local lift > noise floor), the **5-base
+ensemble (overall 0.3206) remains the production submission**; no public upload.
+
+`build_final_perrow.py` BASES reverted to the 5-base set and the production
+submissions/scores restored to the 5-base versions. The seq2 OOF + `_test`
+parquets and the `--predict-test` code are kept (committed) for
+reproducibility; `scripts/train_seq_transformer.py` was left untouched.
+
 ## Where we are
 
 - Spec: `docs/superpowers/specs/2026-05-27-aicup-score-improvements-design.md` (Draft, awaiting user review — but execution has begun per user instruction).
