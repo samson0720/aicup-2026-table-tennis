@@ -59,13 +59,13 @@ def run(args) -> None:
 
         pa = fit_multiclass(x_train, df_train["y_actionId"], x_valid,
                             TARGET_ACTION_CLASSES, cat_idx, "sqrt", 9000 + fold, args.iterations,
-                            task_type=task_type, devices=devices)
+                            depth=args.depth, task_type=task_type, devices=devices)
         pp = fit_multiclass(x_train, df_train["y_pointId"], x_valid,
                             TARGET_POINT_CLASSES, cat_idx, "sqrt", 9100 + fold, args.iterations,
-                            task_type=task_type, devices=devices)
+                            depth=args.depth, task_type=task_type, devices=devices)
         ps = fit_binary(x_train, df_train["y_serverGetPoint"], x_valid,
                         cat_idx, 9200 + fold, args.iterations,
-                        task_type=task_type, devices=devices).reshape(-1, 1)
+                        depth=args.depth, task_type=task_type, devices=devices).reshape(-1, 1)
 
         rally = df_valid["rally_uid"].to_numpy()
         sid = np.full(len(rally), seed)
@@ -78,7 +78,7 @@ def run(args) -> None:
 
     for tgt in ("action", "point", "server"):
         r, s, f, c, p = _stack(bag[tgt]["r"], bag[tgt]["s"], bag[tgt]["f"], bag[tgt]["c"], bag[tgt]["p"])
-        out = write_oof("cat", tgt, r, s, f, c, p)
+        out = write_oof(args.model_name, tgt, r, s, f, c, p)
         print(f"wrote {out}: rows={len(r)}", flush=True)
 
 
@@ -87,6 +87,8 @@ def main() -> None:
     p.add_argument("--seeds", type=int, nargs="*", default=None)
     p.add_argument("--folds", type=int, nargs="*", default=None)
     p.add_argument("--iterations", type=int, default=400)
+    p.add_argument("--depth", type=int, default=6)
+    p.add_argument("--model-name", default="cat")
     p.add_argument("--gpu", action="store_true", help="train CatBoost on the GPU (3090 = device 0)")
     run(p.parse_args())
 

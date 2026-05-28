@@ -198,6 +198,44 @@ stays **cat-only 0.32379**. OOF/test parquets + scripts kept for reproducibility
 not in production BASES. The `aicup-tt-tabpfn` clone env can be removed
 (`conda env remove -n aicup-tt-tabpfn`) if disk is needed.
 
+## Prong C (CatBoost tuning) + private-push summary (2026-05-29)
+
+Prong C = refinements. Since the two new-model-class bets (seq, TabPFN) failed and
+CatBoost was the proven lever, the single pre-specified A/B was a **depth-8**
+CatBoost (`catd8`) vs the shipped depth-6 `cat` (one honest comparison, not a grid
+— no ruler-overfitting). Parametrized `depth`/`--model-name` in
+`train_catboost_baseline.py` / `produce_catboost_oof.py` / `predict_test_catboost.py`
+(defaults preserve the shipped `cat` behavior).
+
+| base | action | point | server | overall |
+|---|---:|---:|---:|---:|
+| cat (depth 6, shipped) | 0.2716 | 0.1739 | 0.6500 | **0.3082** |
+| catd8 (depth 8) | 0.2682 | 0.1748 | 0.6459 | 0.3064 |
+
+**VERDICT: no gain.** Depth 8 overfits (worse standalone, -0.0018) and is highly
+correlated with `cat`, so it would not add ensemble diversity. The depth-6 `cat`
+config is already well-chosen. catd8 parquets discarded (reproducible via
+`--depth 8`); no production change. No further tuning pursued (diminishing
+returns + ruler-overfitting risk per the project philosophy).
+
+### Private-score push — final state
+
+Goal: lift the honest per-row ensemble above 0.3206. Result: **0.3238** (+0.0032).
+
+| prong | model class | verdict | honest ensemble effect |
+|---|---|---|---|
+| (pre) seq2 | Transformer | REJECTED | +0.00098 (sub-noise) |
+| A | CatBoost (depth 6, GPU) | **SHIPPED** | **+0.00324 (>0.00168 floor)** |
+| B | TabPFN v2 (point+server) | REJECTED | -0.00146 (hurts) |
+| C | CatBoost depth-8 tune | no gain | worse standalone |
+
+Production = **6-base per-row ensemble incl. `cat`, honest overall 0.3238**
+(action 0.2939, point 0.1873, server 0.6567). `submission_FINAL_safe_perrow.csv`
+regenerated. **Public upload still pending the user** (honest lift > noise floor
+justifies one confirmation upload, but uploads are daily-limited/teammate-shared).
+The only above-noise lever found was CatBoost; the ensemble now looks saturated to
+the new-model-class bets tried. The `aicup-tt-tabpfn` clone env can be removed.
+
 ## Where we are
 
 - Spec: `docs/superpowers/specs/2026-05-27-aicup-score-improvements-design.md` (Draft, awaiting user review — but execution has begun per user instruction).

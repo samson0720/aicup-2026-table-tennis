@@ -78,6 +78,7 @@ def fit_multiclass(
     weight_mode: str,
     seed: int,
     iterations: int,
+    depth: int = 6,
     task_type: str = "CPU",
     devices: str | None = None,
 ) -> np.ndarray:
@@ -90,7 +91,7 @@ def fit_multiclass(
         loss_function="MultiClass",
         iterations=iterations,
         learning_rate=0.05,
-        depth=6,
+        depth=depth,
         l2_leaf_reg=5.0,
         random_seed=seed,
         verbose=False,
@@ -112,6 +113,7 @@ def fit_binary(
     cat_features: list[int],
     seed: int,
     iterations: int,
+    depth: int = 6,
     task_type: str = "CPU",
     devices: str | None = None,
 ) -> np.ndarray:
@@ -122,7 +124,7 @@ def fit_binary(
         eval_metric="AUC",
         iterations=iterations,
         learning_rate=0.05,
-        depth=6,
+        depth=depth,
         l2_leaf_reg=5.0,
         random_seed=seed,
         verbose=False,
@@ -217,14 +219,14 @@ def run_cv(df: pd.DataFrame, args: argparse.Namespace) -> dict:
     }
 
 
-def fit_full_multiclass(x, y, classes, cat_idx, weight_mode, seed, iterations, task_type="CPU", devices=None):
+def fit_full_multiclass(x, y, classes, cat_idx, weight_mode, seed, iterations, depth=6, task_type="CPU", devices=None):
     weights = class_weights(y, classes, weight_mode)
     class_weights_list = [weights.get(cls, 1.0) for cls in range(max(classes) + 1)] if weights is not None else None
     model = CatBoostClassifier(
         loss_function="MultiClass",
         iterations=iterations,
         learning_rate=0.05,
-        depth=6,
+        depth=depth,
         l2_leaf_reg=5.0,
         random_seed=seed,
         verbose=False,
@@ -239,14 +241,14 @@ def fit_full_multiclass(x, y, classes, cat_idx, weight_mode, seed, iterations, t
     return model
 
 
-def fit_full_binary(x, y, cat_idx, seed, iterations, task_type="CPU", devices=None):
+def fit_full_binary(x, y, cat_idx, seed, iterations, depth=6, task_type="CPU", devices=None):
     pos = max(int((y == 1).sum()), 1)
     neg = max(int((y == 0).sum()), 1)
     model = CatBoostClassifier(
         loss_function="Logloss",
         iterations=iterations,
         learning_rate=0.05,
-        depth=6,
+        depth=depth,
         l2_leaf_reg=5.0,
         random_seed=seed,
         verbose=False,

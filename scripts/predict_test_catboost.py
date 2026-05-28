@@ -38,10 +38,10 @@ def _full_train_features(train: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def run(iterations: int = 600, gpu: bool = True) -> None:
+def run(iterations: int = 600, depth: int = 6, model_name: str = "cat", gpu: bool = True) -> None:
     task_type = "GPU" if gpu else "CPU"
     devices = "0" if gpu else None
-    print(f"cat test: task_type={task_type} devices={devices} iterations={iterations}", flush=True)
+    print(f"{model_name} test: task_type={task_type} devices={devices} iterations={iterations} depth={depth}", flush=True)
 
     data_dir = next(Path.cwd().glob("AI CUP*"))
     train = pd.read_csv(data_dir / "train.csv")
@@ -55,9 +55,9 @@ def run(iterations: int = 600, gpu: bool = True) -> None:
     x_train = prepare_x(df_train[feats], cat_cols)
     x_test = prepare_x(test_features[feats], cat_cols)
 
-    action_model = fit_full_multiclass(x_train, df_train["y_actionId"], TARGET_ACTION_CLASSES, cat_idx, "sqrt", 9000, iterations, task_type=task_type, devices=devices)
-    point_model = fit_full_multiclass(x_train, df_train["y_pointId"], TARGET_POINT_CLASSES, cat_idx, "sqrt", 9100, iterations, task_type=task_type, devices=devices)
-    server_model = fit_full_binary(x_train, df_train["y_serverGetPoint"], cat_idx, 9200, iterations, task_type=task_type, devices=devices)
+    action_model = fit_full_multiclass(x_train, df_train["y_actionId"], TARGET_ACTION_CLASSES, cat_idx, "sqrt", 9000, iterations, depth=depth, task_type=task_type, devices=devices)
+    point_model = fit_full_multiclass(x_train, df_train["y_pointId"], TARGET_POINT_CLASSES, cat_idx, "sqrt", 9100, iterations, depth=depth, task_type=task_type, devices=devices)
+    server_model = fit_full_binary(x_train, df_train["y_serverGetPoint"], cat_idx, 9200, iterations, depth=depth, task_type=task_type, devices=devices)
 
     rally = test_features["rally_uid"].to_numpy()
     p_action = align_multiclass(action_model, x_test, TARGET_ACTION_CLASSES)
@@ -65,19 +65,21 @@ def run(iterations: int = 600, gpu: bool = True) -> None:
     pos_idx = list(server_model.classes_).index(1)
     p_server = server_model.predict_proba(x_test)[:, pos_idx].reshape(-1, 1)
 
-    print(f"cat test: action {p_action.shape}, point {p_point.shape}, server {p_server.shape}", flush=True)
-    _write_test_parquet("cat", "action", rally, p_action)
-    _write_test_parquet("cat", "point", rally, p_point)
-    _write_test_parquet("cat", "server", rally, p_server)
-    print("wrote cat_{action,point,server}_test.parquet", flush=True)
+    print(f"{model_name} test: action {p_action.shape}, point {p_point.shape}, server {p_server.shape}", flush=True)
+    _write_test_parquet(model_name, "action", rally, p_action)
+    _write_test_parquet(model_name, "point", rally, p_point)
+    _write_test_parquet(model_name, "server", rally, p_server)
+    print(f"wrote {model_name}_{{action,point,server}}_test.parquet", flush=True)
 
 
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--iterations", type=int, default=600)
+    p.add_argument("--depth", type=int, default=6)
+    p.add_argument("--model-name", default="cat")
     p.add_argument("--cpu", action="store_true")
     args = p.parse_args()
-    run(iterations=args.iterations, gpu=not args.cpu)
+    run(iterations=args.iterations, depth=args.depth, model_name=args.model_name, gpu=not args.cpu)
 
 
 if __name__ == "__main__":
