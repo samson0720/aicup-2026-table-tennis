@@ -12,6 +12,7 @@ dependencies:
   - scikit-learn=1.4.*
   - lightgbm=4.3.*
   - xgboost=2.0.*
+  - catboost=1.2.*
   - pytorch=2.2.*
   - pytorch-cuda=12.1
   - optuna=3.6.*
