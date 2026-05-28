@@ -10,8 +10,8 @@ from catboost import CatBoostClassifier
 from sklearn.metrics import f1_score, roc_auc_score
 from sklearn.model_selection import GroupKFold
 
-from make_lgbm_submission import build_test_dataset
-from train_lgbm_baseline import (
+from scripts.make_lgbm_submission import build_test_dataset
+from scripts.train_lgbm_baseline import (
     TARGET_ACTION_CLASSES,
     TARGET_POINT_CLASSES,
     build_prefix_dataset,
