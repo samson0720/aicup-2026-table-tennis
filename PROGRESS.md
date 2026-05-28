@@ -3,6 +3,58 @@
 Status as of 2026-05-27. Updated by the active AI agent after every plan task.
 Source-of-truth for the next agent: read this BEFORE touching code.
 
+## CRITICAL CORRECTION (2026-05-28): seed-averaging inflated the stack scores
+
+The reported final ensemble overall **0.3497 was inflated and unrealizable.**
+Root cause: `build_final_submissions.py` / `build_route_a_submission.py` and the
+stacker averaged each rally's base predictions over the 5 seeds
+(`average_over_seeds`) before stacking AND before scoring. Because every seed
+cuts the same rally at a **different** strikeNumber, that average is an ensemble
+over cut points. At submission time each test rally has exactly **one** prefix
+(one cut, 1845 rows = 1845 rallies), so the averaging cannot be reproduced. It
+inflated the local score, dominated by server AUC (per-row **0.6557** vs
+seed-averaged **0.7702**).
+
+Decomposition discovered: the "+0.047 ensemble lift" in the old P5 section
+compared base scores on the **all-cuts** population (0.3027) against the
+ensemble on the **seed-averaged** population (0.3497) — two different
+populations, not a valid comparison.
+
+**Honest per-row ensemble (matches test reality, matches public ~0.32):**
+
+| metric | seed-avg (INFLATED) | per-row (HONEST) | best base lgbm15 |
+|---|---:|---:|---:|
+| action F1 | 0.2540 | 0.2894 | 0.2587 |
+| point F1  | 0.2352 | 0.1842 | 0.1730 |
+| server AUC| 0.7702 | 0.6557 | 0.6499 |
+| overall   | **0.3497** | **0.3206** | 0.3027 |
+
+The ensemble is still genuinely worth it: honest lift over best base =
+**+0.0179** (~10x the 0.00168 noise floor). It was just measured wrong.
+
+Second (real) bug fixed: the old submission's meta-learner was trained on
+seed-averaged features but applied to single-cut test features — a
+train/test distribution mismatch that likely caused the old clean submission to
+score *below* leaves31 on public. The fix trains the meta on per-row features.
+
+**Canonical builder is now `scripts/build_final_perrow.py`** (per-row stack +
+honest nested-threshold scoring + distribution-matched test meta). Outputs:
+`artifacts/submission_FINAL_safe_perrow.csv` (private bet) and
+`artifacts/submission_FINAL_smooth_perrow.csv` (public backup, 1236 overlap rows
+smoothed). The old `build_final_submissions.py` and its
+`submission_FINAL_safe.csv` are **DEPRECATED** (inflated/mismatched).
+
+vs old safe submission: point predictions changed on 1039/1845 rallies (56%),
+action on 370, server recalibrated (corr 0.973, mean 0.474->0.516). Honest
+score = 0.3206 ≈ public clean ~0.32, so the ruler is now trustworthy.
+
+Evidence scripts (re-runnable): `scripts/diag_threshold_honesty.py` (rules out
+in-sample threshold tuning as the cause, only +0.005), `scripts/diag_perrow_vs_seedavg.py`
+(isolates the seed-averaging inflation, server 0.6525 per-row vs 0.7635 seed-avg).
+
+NEXT: use the per-row score (0.3206) as the honest ruler for ANY future "make it
+stronger" work. Never compare a seed-averaged number against an all-cuts number.
+
 ## Where we are
 
 - Spec: `docs/superpowers/specs/2026-05-27-aicup-score-improvements-design.md` (Draft, awaiting user review — but execution has begun per user instruction).
