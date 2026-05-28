@@ -129,6 +129,45 @@ submissions/scores restored to the 5-base versions. The seq2 OOF + `_test`
 parquets and the `--predict-test` code are kept (committed) for
 reproducibility; `scripts/train_seq_transformer.py` was left untouched.
 
+## CatBoost base result — Prong A SHIPPED (2026-05-29)
+
+Private-score push, prong A of `2026-05-28-aicup-private-score-push-design.md`
+(plan `2026-05-28-aicup-catboost-base.md`). Honest per-row ruler throughout.
+
+- **New base `cat`**: CatBoost over the same prefix-feature pipeline as the LGBM
+  bases (native categoricals via `cat_features`), per-row OOF on the 25 cv cells
+  + full-train test inference. Files: `scripts/produce_catboost_oof.py`,
+  `scripts/predict_test_catboost.py`, GPU params added to
+  `scripts/train_catboost_baseline.py` (now importable as a module),
+  `catboost=1.2.*` added to `environment.yml`.
+- **GPU pivot**: the plan specified CPU (historical CatBoost GPU-multiclass
+  class-dropping bug), but CPU was impractically slow (~hours for 19-class
+  multiclass × 25 cells). Verified catboost **1.2.10 has no such bug** (19-class
+  GPU fit keeps all 19 classes, 4.9s), so the prong runs on the 3090
+  (`--gpu`, `CUDA_VISIBLE_DEVICES=0`). ~minutes instead of hours.
+- **Standalone honest (argmax)**: action 0.2716, point 0.1739, server AUC
+  0.6500, overall **0.3082** — beats lgbm15 0.3027 (action +0.0129); now the
+  strongest single base.
+
+| config | action | point | server | overall | lift vs 0.32056 |
+|---|---:|---:|---:|---:|---:|
+| 5-base (prev production) | 0.28938 | 0.18416 | 0.65569 | 0.32056 | — |
+| +cat (6-base) | 0.29388 | 0.18727 | 0.65667 | **0.32379** | **+0.00324** |
+
+**VERDICT: SHIP.** Ensemble lift +0.00324 is ~1.9x the 0.00168 noise floor
+(action +0.0045, point +0.0031, server +0.0010) — the first base to clear the
+gate since the per-row fix, and a real contrast to seq2 (+0.00098, rejected).
+`cat` is now in `build_final_perrow.py` BASES; **production honest overall =
+0.3238**. `submission_FINAL_safe_perrow.csv` regenerated (6 bases).
+
+**Public upload: NOT done (left to user).** Honest local lift > noise floor, so
+uploading `submission_FINAL_safe_perrow.csv` to confirm is justified per the
+rules — but uploads are daily-limited/teammate-shared, so the decision/timing is
+the user's.
+
+NEXT (private-score push): Prong B (TabPFN v2, point+server) and Prong C
+(loss/threshold refinements), each gated the same way.
+
 ## Where we are
 
 - Spec: `docs/superpowers/specs/2026-05-27-aicup-score-improvements-design.md` (Draft, awaiting user review — but execution has begun per user instruction).
