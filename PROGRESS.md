@@ -168,6 +168,36 @@ the user's.
 NEXT (private-score push): Prong B (TabPFN v2, point+server) and Prong C
 (loss/threshold refinements), each gated the same way.
 
+## TabPFN base result — Prong B REJECTED (2026-05-29)
+
+Private-score push, prong B. Honest per-row ruler. Autonomous overnight run.
+
+- **Env isolation**: TabPFN installed in a CLONED env `aicup-tt-tabpfn` (NOT main).
+  First attempt `pip install tabpfn` pulled **tabpfn 8.0.3**, which force-upgraded
+  torch 2.2→2.12 + CUDA 13 and broke the clone (`GLIBCXX_3.4.29 not found`). Fixed
+  by pinning the open Apache v2 line: `tabpfn==2.2.1` + `tabpfn-common-utils==0.1.9`
+  (with the `[interactive]` telemetry extra) via `--no-deps`, keeping torch 2.2.2.
+  **Main `aicup-tt` env was never touched** (clone isolation did its job).
+- **Limits confirmed empirically**: TabPFN v2 caps at **10 classes** (action's 19
+  → excluded; point=10 and server=2 OK) and **~10k context samples** (per-fold
+  ~12k → subsampled to 10k). Files: `scripts/produce_tabpfn_oof.py`,
+  `scripts/predict_test_tabpfn.py` (run in the clone env; write `tabpfn_point`,
+  `tabpfn_server` OOF + `_test`).
+- **Standalone (argmax)**: point macro-F1 **0.0742** (vs lgbm15 0.1730, cat 0.1739),
+  server AUC 0.6488. TabPFN applies no class weighting → majority-biased → poor
+  macro-F1 on the imbalanced targets.
+
+| config | point | server | overall | Δ vs cat-prod |
+|---|---:|---:|---:|---:|
+| cat-only production | 0.18727 | 0.65667 | 0.32379 | — |
+| +tabpfn (point+server) | 0.18358 | 0.65675 | 0.32233 | **-0.00146** |
+
+**VERDICT: REJECTED.** Adding TabPFN *hurts* (overall -0.00146; point -0.00369) —
+its noisy/majority-biased point signal degrades the stack. Reverted; production
+stays **cat-only 0.32379**. OOF/test parquets + scripts kept for reproducibility;
+not in production BASES. The `aicup-tt-tabpfn` clone env can be removed
+(`conda env remove -n aicup-tt-tabpfn`) if disk is needed.
+
 ## Where we are
 
 - Spec: `docs/superpowers/specs/2026-05-27-aicup-score-improvements-design.md` (Draft, awaiting user review — but execution has begun per user instruction).
