@@ -27,9 +27,9 @@ from scripts.postprocess import apply_thresholds, prior_correct, tune_thresholds
 from scripts.score_oof import attach_labels, overall
 
 BASES = {
-    "action": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_action"],
-    "point": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_point"],
-    "server": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_server"],
+    "action": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_action", "cat"],
+    "point": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_point", "cat"],
+    "server": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_server", "cat"],
 }
 KEYS = ["rally_uid", "seed", "fold", "cut_strikeNumber"]
 SPEC = [("multiclass", "action", 19, "actionId"),
