@@ -78,6 +78,8 @@ def fit_multiclass(
     weight_mode: str,
     seed: int,
     iterations: int,
+    task_type: str = "CPU",
+    devices: str | None = None,
 ) -> np.ndarray:
     weights = class_weights(y_train, classes, weight_mode)
     class_weights_list = None
@@ -94,6 +96,8 @@ def fit_multiclass(
         verbose=False,
         allow_writing_files=False,
         thread_count=-1,
+        task_type=task_type,
+        devices=devices,
         classes_count=max(classes) + 1,
         class_weights=class_weights_list,
     )
@@ -108,6 +112,8 @@ def fit_binary(
     cat_features: list[int],
     seed: int,
     iterations: int,
+    task_type: str = "CPU",
+    devices: str | None = None,
 ) -> np.ndarray:
     pos = max(int((y_train == 1).sum()), 1)
     neg = max(int((y_train == 0).sum()), 1)
@@ -122,6 +128,8 @@ def fit_binary(
         verbose=False,
         allow_writing_files=False,
         thread_count=-1,
+        task_type=task_type,
+        devices=devices,
         class_weights=[1.0, neg / pos],
     )
     model.fit(x_train, y_train, cat_features=cat_features)
@@ -209,7 +217,7 @@ def run_cv(df: pd.DataFrame, args: argparse.Namespace) -> dict:
     }
 
 
-def fit_full_multiclass(x, y, classes, cat_idx, weight_mode, seed, iterations):
+def fit_full_multiclass(x, y, classes, cat_idx, weight_mode, seed, iterations, task_type="CPU", devices=None):
     weights = class_weights(y, classes, weight_mode)
     class_weights_list = [weights.get(cls, 1.0) for cls in range(max(classes) + 1)] if weights is not None else None
     model = CatBoostClassifier(
@@ -222,6 +230,8 @@ def fit_full_multiclass(x, y, classes, cat_idx, weight_mode, seed, iterations):
         verbose=False,
         allow_writing_files=False,
         thread_count=-1,
+        task_type=task_type,
+        devices=devices,
         classes_count=max(classes) + 1,
         class_weights=class_weights_list,
     )
@@ -229,7 +239,7 @@ def fit_full_multiclass(x, y, classes, cat_idx, weight_mode, seed, iterations):
     return model
 
 
-def fit_full_binary(x, y, cat_idx, seed, iterations):
+def fit_full_binary(x, y, cat_idx, seed, iterations, task_type="CPU", devices=None):
     pos = max(int((y == 1).sum()), 1)
     neg = max(int((y == 0).sum()), 1)
     model = CatBoostClassifier(
@@ -242,6 +252,8 @@ def fit_full_binary(x, y, cat_idx, seed, iterations):
         verbose=False,
         allow_writing_files=False,
         thread_count=-1,
+        task_type=task_type,
+        devices=devices,
         class_weights=[1.0, neg / pos],
     )
     model.fit(x, y, cat_features=cat_idx)

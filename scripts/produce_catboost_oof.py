@@ -35,6 +35,9 @@ def _stack(rs, ss, fs, cs, ps):
 def run(args) -> None:
     splits = pd.read_parquet("artifacts/cv_splits.parquet")
     train = pd.read_csv(next(Path.cwd().glob("AI CUP*/train.csv")))
+    task_type = "GPU" if args.gpu else "CPU"
+    devices = "0" if args.gpu else None
+    print(f"catboost task_type={task_type} devices={devices}", flush=True)
 
     bag = {t: {"r": [], "s": [], "f": [], "c": [], "p": []} for t in ("action", "point", "server")}
     for seed, fold, train_view, valid_view in iter_cv_folds(train, splits):
@@ -55,11 +58,14 @@ def run(args) -> None:
         x_valid = prepare_x(df_valid[feats], cat_cols)
 
         pa = fit_multiclass(x_train, df_train["y_actionId"], x_valid,
-                            TARGET_ACTION_CLASSES, cat_idx, "sqrt", 9000 + fold, args.iterations)
+                            TARGET_ACTION_CLASSES, cat_idx, "sqrt", 9000 + fold, args.iterations,
+                            task_type=task_type, devices=devices)
         pp = fit_multiclass(x_train, df_train["y_pointId"], x_valid,
-                            TARGET_POINT_CLASSES, cat_idx, "sqrt", 9100 + fold, args.iterations)
+                            TARGET_POINT_CLASSES, cat_idx, "sqrt", 9100 + fold, args.iterations,
+                            task_type=task_type, devices=devices)
         ps = fit_binary(x_train, df_train["y_serverGetPoint"], x_valid,
-                        cat_idx, 9200 + fold, args.iterations).reshape(-1, 1)
+                        cat_idx, 9200 + fold, args.iterations,
+                        task_type=task_type, devices=devices).reshape(-1, 1)
 
         rally = df_valid["rally_uid"].to_numpy()
         sid = np.full(len(rally), seed)
@@ -81,6 +87,7 @@ def main() -> None:
     p.add_argument("--seeds", type=int, nargs="*", default=None)
     p.add_argument("--folds", type=int, nargs="*", default=None)
     p.add_argument("--iterations", type=int, default=400)
+    p.add_argument("--gpu", action="store_true", help="train CatBoost on the GPU (3090 = device 0)")
     run(p.parse_args())
 
 
