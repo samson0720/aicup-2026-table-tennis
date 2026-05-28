@@ -19,7 +19,7 @@ from torch import nn
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader, Subset
 
-from scripts.oof_loader import write_oof
+from scripts.oof_loader import OOF_DIR, write_oof
 from scripts.seq_dataset import RallyPrefixDataset, collate_batch
 from scripts.seq_eval import monitor_score, warmup_cosine_lambda
 from scripts.seq_model import RallyTransformer
@@ -209,11 +209,139 @@ def _write_oof(parts: list[dict[str, np.ndarray]], model_name: str) -> None:
         print(f"wrote {out}: rows={len(rally)}", flush=True)
 
 
+def build_test_dataset(test: pd.DataFrame, seed: int) -> RallyPrefixDataset:
+    """Synthetic-cut test dataset reusing RallyPrefixDataset unchanged.
+
+    test_new.csv gives each rally its observed strokes (strikeNumber 1..max) and
+    no target row. We set cut = max+1 (so the prefix = all observed strokes) and
+    append one synthetic target row per rally so __getitem__ does not raise.
+    serverGetPoint is absent in test (it is a label), so we add a placeholder;
+    all synthetic-row labels are ignored — only the model's predictions are used.
+    """
+    test = test.copy()
+    if "serverGetPoint" not in test.columns:
+        test["serverGetPoint"] = 0
+    cut_by_rally = test.groupby("rally_uid")["strikeNumber"].max().astype(int) + 1
+    synth = (
+        test.sort_values("strikeNumber")
+        .groupby("rally_uid", as_index=False, sort=False)
+        .tail(1)
+        .copy()
+    )
+    synth["strikeNumber"] = synth["rally_uid"].map(cut_by_rally).astype(int)
+    synth["actionId"] = 0
+    synth["pointId"] = 0
+    combined = pd.concat([test, synth], ignore_index=True)
+    synth_splits = pd.DataFrame(
+        {
+            "rally_uid": cut_by_rally.index.astype("int64"),
+            "seed": np.int32(seed),
+            "fold": np.int32(0),
+            "cut_strikeNumber": cut_by_rally.to_numpy().astype("int32"),
+        }
+    )
+    return RallyPrefixDataset(combined, synth_splits, seed=seed)
+
+
+def _write_test_oof(pred: dict[str, np.ndarray], model_name: str) -> None:
+    rally = pred["rally_uid"].astype(np.int64)
+    assert len(rally) == len(np.unique(rally)), "duplicate rally_uid in test predictions"
+    OOF_DIR.mkdir(parents=True, exist_ok=True)
+    for target in ("action", "point", "server"):
+        probs = pred[target]
+        df = pd.DataFrame({"rally_uid": rally})
+        if target == "server":
+            df["p_1"] = probs[:, 0].astype(np.float32)
+        else:
+            for c in range(probs.shape[1]):
+                df[f"p_{c}"] = probs[:, c].astype(np.float32)
+        out = OOF_DIR / f"{model_name}_{target}_test.parquet"
+        df.to_parquet(out, index=False)
+        print(f"wrote {out}: rows={len(df)}", flush=True)
+
+
+def run_predict_test(
+    args: argparse.Namespace,
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    splits: pd.DataFrame,
+    device: torch.device,
+) -> None:
+    """Train one full-train model (single seed, no held-out fold, fixed epochs)
+    and write single-cut test predictions, distribution-matched to the OOF models.
+    """
+    seed = args.seeds[0]
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+
+    ds = RallyPrefixDataset(train, splits, seed=seed)
+    all_idx = list(range(len(ds)))
+    train_loader = DataLoader(
+        ds, batch_size=args.batch_size, shuffle=True, num_workers=0, collate_fn=collate_batch
+    )
+    model = RallyTransformer(
+        d_model=args.d_model,
+        nhead=args.nhead,
+        num_layers=args.layers,
+        dim_feedforward=args.ffn,
+        dropout=args.dropout,
+    ).to(device)
+    action_loss = nn.CrossEntropyLoss(weight=_class_weights(_labels(ds, all_idx, "y_action"), 19, device))
+    point_loss = nn.CrossEntropyLoss(weight=_class_weights(_labels(ds, all_idx, "y_point"), 10, device))
+    server_loss = nn.BCEWithLogitsLoss()
+    opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    total_steps = args.epochs * max(1, len(train_loader))
+    sched = torch.optim.lr_scheduler.LambdaLR(
+        opt, warmup_cosine_lambda(int(args.warmup_frac * total_steps), total_steps)
+    )
+    scaler = GradScaler(enabled=device.type == "cuda")
+
+    print(
+        f"predict-test: full-train seed {seed}, {len(ds)} examples, "
+        f"{args.epochs} epochs (no early stop)",
+        flush=True,
+    )
+    for epoch in range(1, args.epochs + 1):
+        model.train()
+        for batch in train_loader:
+            opt.zero_grad(set_to_none=True)
+            with autocast(enabled=device.type == "cuda"):
+                out = model(
+                    batch["tokens"].to(device),
+                    batch["floats"].to(device),
+                    batch["mask"].to(device),
+                )
+                loss = (
+                    0.4 * action_loss(out["action_logits"], batch["y_action"].to(device))
+                    + 0.4 * point_loss(out["point_logits"], batch["y_point"].to(device))
+                    + 0.2 * server_loss(out["server_logit"], batch["y_server"].to(device))
+                )
+            scaler.scale(loss).backward()
+            scaler.unscale_(opt)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+            scaler.step(opt)
+            scaler.update()
+            sched.step()
+        print(f"predict-test epoch{epoch} train done", flush=True)
+
+    test_ds = build_test_dataset(test, seed)
+    test_loader = DataLoader(
+        test_ds, batch_size=args.batch_size, shuffle=False, num_workers=0, collate_fn=collate_batch
+    )
+    pred = _predict(model, test_loader, device)
+    _write_test_oof(pred, args.model_name)
+
+
 def run(args: argparse.Namespace) -> None:
     device = _device(args.cpu)
     data_dir = next(Path.cwd().glob("AI CUP*"))
     train = pd.read_csv(data_dir / "train.csv")
     splits = pd.read_parquet("artifacts/cv_splits.parquet")
+
+    if args.predict_test:
+        test = pd.read_csv(data_dir / "test_new.csv")
+        run_predict_test(args, train, test, splits, device)
+        return
 
     parts: list[dict[str, np.ndarray]] = []
     logs: dict[str, dict[str, float]] = {}
@@ -269,6 +397,8 @@ def main() -> None:
     parser.add_argument("--max-train", type=int)
     parser.add_argument("--max-valid", type=int)
     parser.add_argument("--cpu", action="store_true")
+    parser.add_argument("--predict-test", action="store_true",
+                        help="train one full-train model and write single-cut test predictions")
     parser.add_argument("--model-name", default="seq_pilot")
     run(parser.parse_args())
 
