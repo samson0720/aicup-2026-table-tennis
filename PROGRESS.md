@@ -48,6 +48,15 @@ vs old safe submission: point predictions changed on 1039/1845 rallies (56%),
 action on 370, server recalibrated (corr 0.973, mean 0.474->0.516). Honest
 score = 0.3206 ≈ public clean ~0.32, so the ruler is now trustworthy.
 
+**VALIDATED on public LB (2026-05-28):** `submission_FINAL_safe_perrow.csv`
+scored **0.3492438** clean — beats the previous best clean single model
+leaves31 (0.3364) by +0.013 and the old mismatched ensemble (~0.32) by +0.029.
+First time the ensemble actually wins on public clean. Confirms the honest
+ruler: local 0.3206 -> public 0.3492 (offset +0.029) matches the base offset
+(lgbm15 local 0.3027 -> public 0.3263, +0.024). Local and public now agree on
+direction AND magnitude. The smooth_perrow variant (untested) should be >= the
+old 0.4102 smooth record if public-LB maximization is wanted.
+
 Evidence scripts (re-runnable): `scripts/diag_threshold_honesty.py` (rules out
 in-sample threshold tuning as the cause, only +0.005), `scripts/diag_perrow_vs_seedavg.py`
 (isolates the seed-averaging inflation, server 0.6525 per-row vs 0.7635 seed-avg).
