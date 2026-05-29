@@ -31,6 +31,23 @@ Exactly the spec's flagged redundancy-with-markovp risk: markovp already capture
 to the 7-base markovp set; production stays **0.325678**. `produce_markov2_oof.py` +
 OOF/test parquets kept for reproducibility (NOT in BASES).
 
+### v4 L4 — structured (action, point) joint base (`joint`) — REJECTED (2026-05-30)
+
+`scripts/produce_joint_oof.py`: OOF-safe smoothed P(point|action) (Dirichlet α=4,
+fit per fold-train) marginalized over cat's action OOF, P(point)=Σ_a P(point|a)·P̂(a).
+point-only base. OOF 74975, test 1845. Evaluated through the full downstream pipeline.
+
+| config | action | point | server | overall | lift |
+|---|---:|---:|---:|---:|---:|
+| production | 0.29633 | 0.18954 | 0.65667 | **0.325678** | — |
+| + joint (point) | 0.29633 | 0.18775 | 0.65667 | 0.324966 | **−0.00071** |
+
+**VERDICT: REJECT.** point −0.00179. The marginalized joint smears the point
+distribution (averaging conditionals weighted by an imperfect P̂(a)); `chain_point`
+and `cat` already model the action→point dependence more sharply, so the joint adds a
+weaker, redundant point signal that the stacker can only down-weight or be hurt by.
+BASES reverted; production stays **0.325678**. Scripts/parquets kept (NOT in BASES).
+
 ## Private-push v3 — P1 (macro-F1 decision rule) — REJECTED (2026-05-29)
 
 Spec `docs/superpowers/specs/2026-05-29-aicup-private-push-v3-design.md`, plan
