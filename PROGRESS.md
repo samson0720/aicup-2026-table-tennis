@@ -331,6 +331,27 @@ kept for reproducibility; production = 6-base per-row ensemble (incl. cat),
 honest overall **0.3238**, `submission_FINAL_safe_perrow.csv`. Public upload still
 pending the user.
 
+## Player-conditional transition features (markovp) — SHIPPED (2026-05-29)
+
+Idea 1 from the user/consult: explicit smoothed **P(next | last_stroke,
+next_player)** as features — genuinely untried (the `markov` base is
+player-agnostic; conditions on phase + last-stroke only). `scripts/produce_markovp_oof.py`:
+OOF-safe hierarchical backoff (global → last-stroke → (player,last-stroke),
+Dirichlet alpha=8), action+point only (player-conditional server unclear).
+
+Gate (OOF nested-CV vs 0.32379): **+markovp → overall 0.32568, lift +0.00188**
+(action 0.2939→0.2963, point 0.1873→0.1895 — both improve consistently).
+
+**VERDICT: SHIP.** +0.00188 clears the 0.00168 floor (marginal, ~1.1x, vs
+CatBoost's 1.9x — a borderline-but-real, mechanistically-sound gain on both
+macro-F1 targets). The tree has player ID + last-action as raw features but
+can't estimate the smoothed interaction for sparse player×prev-action combos;
+the explicit backoff prob supplies it. Added to `build_final_perrow.py` BASES
+(action+point; server unchanged). **Production honest overall now 0.32568.**
+Second lever to ship after CatBoost; the only v2-era idea that cleared the gate.
+(Still nowhere near 0.4 — that remains leak/public-only territory; this is an
+honest private gain.)
+
 ## Where we are
 
 - Spec: `docs/superpowers/specs/2026-05-27-aicup-score-improvements-design.md` (Draft, awaiting user review — but execution has begun per user instruction).
