@@ -12,6 +12,35 @@ L1 ShuttleNet neural base, L2 focal-loss GBDT, L3 higher-order Markov, L4 (actio
 point) joint, L5 public leak. Baseline reproduced exactly (0.32567846) after the P1
 refactor — pipeline intact.
 
+### Private-push v4 — FINAL SUMMARY (2026-05-30)
+
+Goal: lift honest private overall above 0.325678 via parallel multi-bet. Result:
+**no lever cleared the 0.00168 floor; production stays 0.325678** — but L1 (ShuttleNet)
+is a genuine near-miss and the strongest signal in three campaigns.
+
+| lever | what | verdict | honest ensemble lift |
+|---|---|---|---:|
+| L1 | ShuttleNet dual-encoder neural base | **REJECT (near-miss)** | **+0.00140** (floor 0.00168) |
+| L2 | focal-loss GBDT (`lgbm_focal`) | REJECT | −0.00059 |
+| L3 | higher-order player×2-gram Markov (`markov2`) | REJECT | −0.00103 |
+| L4 | (action,point) joint marginal (`joint`) | REJECT | −0.00071 |
+| L5 | public leak-max rebuild | done (bases unchanged) | n/a (public) |
+
+Key findings:
+- **ShuttleNet is the first competitive neural model on this task** (web-research lever:
+  AAAI'22 ShuttleNet / CoachAI'23). Standalone point 0.1849 = best single base; ensemble
+  +0.00140 improves BOTH macro-F1 targets. Sub-floor (0.83×) so not shipped, but a
+  one-line `BASES` add ships it (→ 0.327081) if the user accepts the reseed-noise risk.
+  Capacity bump (shuttle_big) confirmed it's at-capacity, not undertrained.
+- L2/L3/L4 reconfirm the **information-ceiling** finding: deeper Markov, action→point
+  joint, and focal loss all land sub-floor (negative). Only genuinely-new *architecture*
+  (ShuttleNet) produced positive signal; new *objectives/conditionals* did not.
+- **Production unchanged: 7-base per-row ensemble, honest overall 0.325678**
+  (`submission_FINAL_safe_perrow.csv`). Public `submission_FINAL_leakmax.csv` rebuilt
+  (point overridden on 1236 overlap rallies; ≈ prior 0.420782 since bases unchanged).
+  All v4 scripts/parquets kept + reproducible; 61 tests green. **Public uploads left to
+  the user** (daily-limited/teammate-shared).
+
 ### v4 L3 — higher-order player×context Markov (`markov2`) — REJECTED (2026-05-30)
 
 `scripts/produce_markov2_oof.py`: Dirichlet backoff global → last1 →
