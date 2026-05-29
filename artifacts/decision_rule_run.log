@@ -1,0 +1,55 @@
+{
+  "per_target": {
+    "action": {
+      "additive_baseline": {
+        "nested_cv": 0.28631288714335557,
+        "seed_holdout": 0.28207470588279127
+      },
+      "additive_wide": {
+        "nested_cv": 0.2859404703384797,
+        "seed_holdout": 0.2676634784822635
+      },
+      "calibrated": {
+        "nested_cv": 0.29273951650675195,
+        "seed_holdout": 0.28654399067937963
+      },
+      "weighted": {
+        "nested_cv": 0.28588508073520885,
+        "seed_holdout": 0.2830207402822113
+      }
+    },
+    "point": {
+      "additive_baseline": {
+        "nested_cv": 0.18658942903068146,
+        "seed_holdout": 0.18704623675648355
+      },
+      "additive_wide": {
+        "nested_cv": 0.1900443610568699,
+        "seed_holdout": 0.19142524445607417
+      },
+      "calibrated": {
+        "nested_cv": 0.1880792146665321,
+        "seed_holdout": 0.1890340582638451
+      },
+      "weighted": {
+        "nested_cv": 0.1866027725471068,
+        "seed_holdout": 0.19037702255812775
+      }
+    }
+  },
+  "overall_nested": {
+    "additive_baseline": 0.3205009264696148,
+    "additive_wide": 0.32173393255813987,
+    "calibrated": 0.3236674924693136,
+    "weighted": 0.3203351413129263
+  },
+  "lift_vs_baseline": {
+    "additive_baseline": 0.0,
+    "additive_wide": 0.0012330060885250571,
+    "calibrated": 0.0031665659996987783,
+    "weighted": -0.0001657851566885249
+  },
+  "noise_floor": 0.00168
+}
+
+GATE VERDICT: winner=calibrated lift=+0.00317 (SHIP)

@@ -3,6 +3,41 @@
 Status as of 2026-05-28. Updated by the active AI agent after every plan task.
 Source-of-truth for the next agent: read this BEFORE touching code.
 
+## Private-push v3 — P1 (macro-F1 decision rule) gate result — SHIP `calibrated` (2026-05-29)
+
+Spec `docs/superpowers/specs/2026-05-29-aicup-private-push-v3-design.md`, plan
+`docs/superpowers/plans/2026-05-29-aicup-p1-decision-rule.md`. Pluggable decision
+rules in `scripts/decision_rule.py`; gate harness `scripts/eval_decision_rule.py`
+(nested-CV ruler + seed-55 holdout kill switch). Honest per-row throughout.
+
+Four rules vs the current production rule (`additive_baseline` = prior_correct +
+±0.10 grid, 2 passes). `overall_nested` = 0.4·action + 0.4·point + 0.2·0.6567
+(server untouched by P1).
+
+| rule | action nested | action holdout | point nested | point holdout | overall | lift |
+|---|---:|---:|---:|---:|---:|---:|
+| additive_baseline | 0.2863 | 0.2821 | 0.1866 | 0.1870 | 0.32050 | — |
+| additive_wide | 0.2859 | 0.2677 | 0.1900 | 0.1914 | 0.32173 | +0.00123 |
+| **calibrated** | **0.2927** | **0.2865** | 0.1881 | 0.1890 | **0.32367** | **+0.00317** |
+| weighted | 0.2859 | 0.2830 | 0.1866 | 0.1904 | 0.32034 | -0.00017 |
+
+**VERDICT: SHIP `calibrated`** (per-class isotonic calibration of the meta-stacker
+probs + wide-grid thresholds). Nested lift +0.00317 ≈ 1.9× the 0.00168 floor, and
+it improves BOTH targets on the seed-55 holdout (action +0.0045, point +0.0020) —
+robust, not ruler-overfit. Mechanism: isotonic beats the crude `prior_correct`.
+
+The seed-55 holdout did its job: `additive_wide` looked good on nested (+0.00123)
+but REGRESSED on the action holdout (0.2821→0.2677) — decision-rule overfit, correctly
+rejected. `weighted` was sub-noise.
+
+Caveat: the harness baseline (0.32050) is ~0.005 below the recorded production
+0.32568 (harness uses honest per-fold priors; production uses full-data prior). The
+rule-vs-rule comparison is internally consistent, but the SHIP is confirmed against
+the REAL production rebuild in Task 7 (must clear 0.32568 + 0.00168), not assumed
+from the harness number. Artifacts: `artifacts/decision_rule_scores.json`,
+`artifacts/decision_rule_run.log`.
+
+
 ## CRITICAL CORRECTION (2026-05-28): seed-averaging inflated the stack scores
 
 The reported final ensemble overall **0.3497 was inflated and unrealizable.**
