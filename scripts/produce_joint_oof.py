@@ -37,3 +37,62 @@ def fit_point_given_action(df, n_action=N_ACTION, n_point=N_POINT, alpha=ALPHA):
 def marginalize_point(phat_action, cond):
     out = phat_action @ cond
     return out / out.sum(axis=1, keepdims=True)
+
+
+def _phat_action(model, seed, fold, rally_order):
+    df = read_oof(model, "action")
+    df = df[(df.seed == seed) & (df.fold == fold)].set_index("rally_uid")
+    cols = [f"p_{c}" for c in range(N_ACTION)]
+    return df.reindex(rally_order)[cols].to_numpy()
+
+
+def run_oof(args) -> None:
+    splits = pd.read_parquet("artifacts/cv_splits.parquet")
+    train = pd.read_csv(next(Path.cwd().glob("AI CUP*/train.csv")))
+    bag = {"r": [], "s": [], "f": [], "c": [], "p": []}
+    for seed, fold, tv, vv in iter_cv_folds(train, splits):
+        st = splits[(splits.seed == seed) & (splits.fold != fold)]
+        sv = splits[(splits.seed == seed) & (splits.fold == fold)]
+        dtr = build_one_sample_per_rally(tv, st); dva = build_one_sample_per_rally(vv, sv)
+        if dtr.empty or dva.empty:
+            continue
+        rally = dva["rally_uid"].to_numpy()
+        cond = fit_point_given_action(dtr)
+        phat = _phat_action(args.action_base, seed, fold, rally)
+        phat = np.nan_to_num(phat, nan=1.0 / N_ACTION)
+        p = marginalize_point(phat, cond)
+        bag["r"].append(rally); bag["s"].append(np.full(len(rally), seed))
+        bag["f"].append(np.full(len(rally), fold)); bag["c"].append(dva["target_strikeNumber"].to_numpy())
+        bag["p"].append(p)
+        print(f"joint seed={seed} fold={fold} n={len(rally)}", flush=True)
+    r = np.concatenate(bag["r"]); s = np.concatenate(bag["s"]); f = np.concatenate(bag["f"])
+    c = np.concatenate(bag["c"]); p = np.concatenate(bag["p"], axis=0)
+    print("wrote", write_oof("joint", "point", r, s, f, c, p), "rows=", len(r), flush=True)
+
+
+def run_test() -> None:
+    data_dir = next(Path.cwd().glob("AI CUP*"))
+    train = pd.read_csv(data_dir / "train.csv")
+    test = pd.read_csv(data_dir / "test_new.csv")
+    cache = Path("artifacts/prefix_train_baseline.parquet")
+    df_train = pd.read_parquet(cache) if cache.exists() else build_prefix_dataset(train)
+    test_features = build_test_dataset(test).sort_values("rally_uid").reset_index(drop=True)
+    rally = test_features["rally_uid"].to_numpy()
+    cond = fit_point_given_action(df_train)
+    phat = pd.read_parquet("artifacts/oof/cat_action_test.parquet").set_index("rally_uid")
+    phat = phat.loc[rally, [f"p_{c}" for c in range(N_ACTION)]].to_numpy()
+    p = marginalize_point(phat, cond)
+    _write_test_parquet("joint", "point", rally, p)
+    print(f"wrote joint_point_test: {p.shape}", flush=True)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--action-base", default="cat")
+    ap.add_argument("--predict-test", action="store_true")
+    args = ap.parse_args()
+    run_test() if args.predict_test else run_oof(args)
+
+
+if __name__ == "__main__":
+    main()
