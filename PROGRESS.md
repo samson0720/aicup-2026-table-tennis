@@ -376,6 +376,29 @@ as training data).
 - **Honest/private submission unchanged**: `submission_FINAL_safe_perrow.csv`
   (cat+markovp, 0.32568) remains the clean private bet; leak only helps public.
 
+## Feature pruning (data-centric) — REJECTED (2026-05-29)
+
+User direction: prune useless / high-variance features to improve prediction.
+`scripts/cat_feature_importance.py` (per-fold CatBoost importance mean+std on
+seed11 x folds0-2) found **78 of 195 features have ~0 importance for both
+action & point** (e.g. obs*_strikeId, handId_cnt_*, prefix_is_long); the
+high-std features (next_gamePlayerId_inferred, first_gamePlayerId) are also the
+most IMPORTANT, so kept. Built `cat_pruned` (top 117 features, via
+`--keep-features artifacts/cat_keep_features.json`).
+
+| | action | point | server | overall |
+|---|---:|---:|---:|---:|
+| cat (195 feats) standalone | 0.2716 | 0.1739 | 0.6500 | 0.3082 |
+| cat_pruned (117) standalone | 0.2716 | 0.1733 | 0.6501 | 0.3080 |
+| ensemble w/ cat | — | — | — | 0.32568 |
+| ensemble w/ cat_pruned | — | — | — | 0.32537 |
+
+**VERDICT: REJECTED.** Pruning is neutral-to-slightly-worse (-0.0003) — CatBoost
+already ignores useless features, so removing them changes nothing. Confirms the
+issue is the **information ceiling, not feature noise**; data-CLEANING can't help,
+only NEW signal does (as markovp/CatBoost did). Production unchanged (cat full,
+0.32568). `cat_feature_importance.py` + `--keep-features` kept as reusable tooling.
+
 ## Where we are
 
 - Spec: `docs/superpowers/specs/2026-05-27-aicup-score-improvements-design.md` (Draft, awaiting user review — but execution has begun per user instruction).

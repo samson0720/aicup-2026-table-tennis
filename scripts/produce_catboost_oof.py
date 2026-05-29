@@ -6,6 +6,7 @@ train_catboost_baseline. CPU only. Writes artifacts/oof/cat_{target}.parquet.
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import numpy as np
@@ -53,6 +54,9 @@ def run(args) -> None:
         if df_train.empty or df_valid.empty:
             continue
         feats = [c for c in feature_columns(df_train) if c in df_valid.columns]
+        if args.keep_features:
+            keep = set(json.loads(Path(args.keep_features).read_text()))
+            feats = [c for c in feats if c in keep]
         cat_idx = cat_feature_indices(feats)
         cat_cols = [feats[i] for i in cat_idx]
         x_train = prepare_x(df_train[feats], cat_cols)
@@ -106,6 +110,7 @@ def main() -> None:
     p.add_argument("--weight-mode", default="sqrt", choices=["none", "sqrt", "balanced"])
     p.add_argument("--oversample", type=float, default=0.0, help="min_frac for rare-class oversampling; 0 disables")
     p.add_argument("--leak-sgp", action="store_true", help="feed known serverGetPoint as a feature to action/point models")
+    p.add_argument("--keep-features", default=None, help="path to JSON list of feature names to keep (prune the rest)")
     p.add_argument("--model-name", default="cat")
     p.add_argument("--gpu", action="store_true", help="train CatBoost on the GPU (3090 = device 0)")
     run(p.parse_args())

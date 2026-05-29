@@ -7,6 +7,7 @@ default (3090 = device 0); pass --cpu to force CPU.
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import numpy as np
@@ -39,7 +40,7 @@ def _full_train_features(train: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def run(iterations: int = 600, depth: int = 6, weight_mode: str = "sqrt", oversample: float = 0.0, leak_sgp: bool = False, model_name: str = "cat", gpu: bool = True) -> None:
+def run(iterations: int = 600, depth: int = 6, weight_mode: str = "sqrt", oversample: float = 0.0, leak_sgp: bool = False, keep_features: str | None = None, model_name: str = "cat", gpu: bool = True) -> None:
     task_type = "GPU" if gpu else "CPU"
     devices = "0" if gpu else None
     print(f"{model_name} test: task_type={task_type} devices={devices} iterations={iterations} depth={depth}", flush=True)
@@ -51,6 +52,9 @@ def run(iterations: int = 600, depth: int = 6, weight_mode: str = "sqrt", oversa
     df_train = _full_train_features(train)
     test_features = build_test_dataset(test).sort_values("rally_uid").reset_index(drop=True)
     feats = [c for c in feature_columns(df_train) if c in test_features.columns]
+    if keep_features:
+        keep = set(json.loads(Path(keep_features).read_text()))
+        feats = [c for c in feats if c in keep]
     cat_idx = cat_feature_indices(feats)
     cat_cols = [feats[i] for i in cat_idx]
     x_train = prepare_x(df_train[feats], cat_cols)
@@ -97,10 +101,11 @@ def main() -> None:
     p.add_argument("--weight-mode", default="sqrt", choices=["none", "sqrt", "balanced"])
     p.add_argument("--oversample", type=float, default=0.0, help="min_frac for rare-class oversampling; 0 disables")
     p.add_argument("--leak-sgp", action="store_true", help="feed known/smoothed serverGetPoint as a feature to action/point")
+    p.add_argument("--keep-features", default=None, help="path to JSON list of feature names to keep (prune the rest)")
     p.add_argument("--model-name", default="cat")
     p.add_argument("--cpu", action="store_true")
     args = p.parse_args()
-    run(iterations=args.iterations, depth=args.depth, weight_mode=args.weight_mode, oversample=args.oversample, leak_sgp=args.leak_sgp, model_name=args.model_name, gpu=not args.cpu)
+    run(iterations=args.iterations, depth=args.depth, weight_mode=args.weight_mode, oversample=args.oversample, leak_sgp=args.leak_sgp, keep_features=args.keep_features, model_name=args.model_name, gpu=not args.cpu)
 
 
 if __name__ == "__main__":
