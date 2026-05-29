@@ -267,6 +267,18 @@ unchanged (cat-only, 0.32379); `build_final_perrow.py` untouched. cat_bal/cat_os
 scripts + OOF/test parquets kept for reproducibility (not in BASES). Proceeding to
 Phase 2 (XGBoost-GPU + FT-Transformer diverse bases).
 
+## Private-push v2 — Phase 2 results (2026-05-29)
+
+### 2-A: XGBoost (GPU) base — REJECTED
+
+`scripts/produce_xgb_oof.py` + `predict_test_xgb.py` (numeric features, sqrt
+sample-weights, GPU; LabelEncoder so XGBoost accepts folds with missing classes).
+Standalone honest: action 0.2499, point 0.1705, server 0.6339, overall **0.2949**
+— weaker than cat 0.3082 and lgbm15 0.3027 (a third, more-redundant GBDT). Gate
+(OOF-only): cat+xgb overall **0.32408**, lift **+0.00028** ≪ 0.00168 floor.
+**REJECTED.** Test inference skipped (won't ship). Scripts + OOF kept for
+reproducibility; not in BASES.
+
 ## Where we are
 
 - Spec: `docs/superpowers/specs/2026-05-27-aicup-score-improvements-design.md` (Draft, awaiting user review — but execution has begun per user instruction).
