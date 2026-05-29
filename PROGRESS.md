@@ -31,6 +31,26 @@ Exactly the spec's flagged redundancy-with-markovp risk: markovp already capture
 to the 7-base markovp set; production stays **0.325678**. `produce_markov2_oof.py` +
 OOF/test parquets kept for reproducibility (NOT in BASES).
 
+### v4 L1 — ShuttleNet-style neural base — PILOT GREEN, PROCEED (2026-05-30)
+
+`scripts/shuttle_model.py` (`ShuttleForecaster`: rally-progress enc + player-style
+enc + position-aware gated fusion, action+point heads only) + `scripts/train_shuttle.py`
+(class-weighted CE, AMP, early stop). Pilot seed11×folds0-2 (8960 rows), seq winning
+config (d256/l4/h4/ffn768/do0.2/lr3e-4, 50ep patience12, early-stopped ~ep23).
+
+| model | action | point | (slice) |
+|---|---:|---:|---|
+| lgbm15 (same slice) | 0.2551 | 0.1619 | — |
+| seq pilot (prior, rejected) | 0.2425 | 0.1618 | — |
+| **shuttle pilot** | **0.2681** | **0.1828** | beats both GBDT + seq |
+
+**VERDICT: PROCEED.** First neural model COMPETITIVE on this task — beats lgbm15 on
+both targets on the pilot slice (action +0.0130, point +0.0209), unlike the generic
+seq Transformer (rejected). The ShuttleNet inductive bias (dual encoder + player-style
+embeddings + position-aware gated fusion) is the difference. Proceeding to L1.4: full
+25-fold OOF + test + integration A/B gate vs 0.325678. NOTE: data-loading-bound
+(GPU idle, RallyPrefixDataset single-thread); add DataLoader num_workers for the full run.
+
 ### v4 L4 — structured (action, point) joint base (`joint`) — REJECTED (2026-05-30)
 
 `scripts/produce_joint_oof.py`: OOF-safe smoothed P(point|action) (Dirichlet α=4,
