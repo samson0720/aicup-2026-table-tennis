@@ -123,14 +123,14 @@ def run_one_fold(
         Subset(ds, train_idx),
         batch_size=args.batch_size,
         shuffle=True,
-        num_workers=0,
+        num_workers=args.num_workers,
         collate_fn=collate_batch,
     )
     valid_loader = DataLoader(
         Subset(ds, valid_idx),
         batch_size=args.batch_size,
         shuffle=False,
-        num_workers=0,
+        num_workers=args.num_workers,
         collate_fn=collate_batch,
     )
 
@@ -290,7 +290,7 @@ def run_predict_test(
     ds = RallyPrefixDataset(train, splits, seed=seed)
     all_idx = list(range(len(ds)))
     train_loader = DataLoader(
-        ds, batch_size=args.batch_size, shuffle=True, num_workers=0, collate_fn=collate_batch
+        ds, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=collate_batch
     )
     model = ShuttleForecaster(
         d_model=args.d_model,
@@ -339,7 +339,7 @@ def run_predict_test(
 
     test_ds = build_test_dataset(test, seed)
     test_loader = DataLoader(
-        test_ds, batch_size=args.batch_size, shuffle=False, num_workers=0, collate_fn=collate_batch
+        test_ds, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=collate_batch
     )
     pred = _predict(model, test_loader, device)
     _write_test_parquet(pred, args.model_name)
@@ -409,6 +409,7 @@ def main() -> None:
     parser.add_argument("--clip", type=float, default=1.0)
     parser.add_argument("--max-train", type=int)
     parser.add_argument("--max-valid", type=int)
+    parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--cpu", action="store_true")
     parser.add_argument("--predict-test", action="store_true",
                         help="train one full-train model and write single-cut test predictions")
