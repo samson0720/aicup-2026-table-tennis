@@ -27,11 +27,13 @@ def tune_thresholds(
     y: np.ndarray,
     n_classes: int,
     grid: tuple[float, ...] = (-0.10, -0.06, -0.03, -0.01, 0.0, 0.01, 0.03, 0.06, 0.10),
+    max_passes: int = 2,
 ) -> np.ndarray:
     """Per-class additive threshold grid search to maximize macro-F1.
 
-    Greedy two-pass: for each class c, fix others at current thresholds and pick the
-    best `v` from `grid`. Repeat once. Stops when no class moves.
+    Greedy coordinate ascent: for each class c, fix others and pick the best `v`
+    from `grid`. Repeat up to `max_passes` times. Stops early when no class moves.
+    Defaults reproduce the original (±0.10 grid, 2 passes).
     """
     from sklearn.metrics import f1_score
 
@@ -45,7 +47,7 @@ def tune_thresholds(
         )
 
     best_global = score(thr)
-    for _ in range(2):
+    for _ in range(max_passes):
         moved = False
         for c in range(n_classes):
             best_local = best_global
