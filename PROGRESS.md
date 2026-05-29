@@ -292,6 +292,45 @@ those features. **REJECTED at the pilot gate** — full 25-fold + test skipped t
 avoid wasting compute (consistent with seq/TabPFN). ft_pilot parquets discarded;
 `ft_transformer.py`/`produce_ft_oof.py` kept for reproducibility.
 
+### Phase 3: hill-climbing stacker — REJECTED
+
+Greedy weighted blend vs the LR meta, gated on a seed-55 holdout (fit/select on
+seeds 11/22/33/44). Two-stage check:
+- **Argmax-only** comparison first looked great: holdout overall LR 0.2893 vs
+  hillclimb 0.3157 (+0.0264). **But that was an artifact** — LR-argmax is
+  handicapped for macro-F1 (it favors majority classes); the production pipeline
+  fixes this with prior-correction + threshold tuning.
+- **Fair** comparison (prior + nested threshold tuning applied to BOTH, the actual
+  production method): holdout overall **LR 0.32650 vs hillclimb 0.22383
+  (-0.10267)**. The blend's probabilities collapse under threshold tuning (action
+  F1 0.067). LR dominates.
+
+**REJECTED.** The LR meta-stacker is the right combiner; hill-climbing is far worse
+once the production scoring is applied. (Lesson: always compare stackers with the
+full downstream pipeline, not argmax.) Production unchanged.
+
+## Private-push v2 — FINAL SUMMARY (2026-05-29)
+
+Goal: lift honest private overall above 0.3238 (CatBoost from the prior campaign).
+Result: **no lever cleared the 0.00168 noise floor. Production stays 0.3238.**
+
+| phase | lever | verdict | honest signal |
+|---|---|---|---|
+| 1 | rare-class rebalancing (cat_bal/cat_os) | REJECTED | best +0.00022 |
+| 2-A | XGBoost (GPU) | REJECTED | +0.00028 |
+| 2-B | FT-Transformer (GPU) | REJECTED | pilot ~0.24 ≪ GBDT |
+| 3 | hill-climbing stacker | REJECTED | -0.103 on holdout (fair) |
+
+Combined with the prior campaign (seq2, TabPFN, depth-8 all rejected; only
+CatBoost shipped +0.00324), the honest conclusion is firm: **the ensemble is
+saturated and the data is at its information ceiling** (next stroke genuinely
+unobserved; short rallies). Every model-class / rebalancing / stacker idea tried
+lands sub-noise. The only remaining big lever is the **public-smooth
+serverGetPoint trick (deferred to the final submission)**. New scripts/variants
+kept for reproducibility; production = 6-base per-row ensemble (incl. cat),
+honest overall **0.3238**, `submission_FINAL_safe_perrow.csv`. Public upload still
+pending the user.
+
 ## Where we are
 
 - Spec: `docs/superpowers/specs/2026-05-27-aicup-score-improvements-design.md` (Draft, awaiting user review — but execution has begun per user instruction).
