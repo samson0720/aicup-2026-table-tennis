@@ -236,6 +236,37 @@ justifies one confirmation upload, but uploads are daily-limited/teammate-shared
 The only above-noise lever found was CatBoost; the ensemble now looks saturated to
 the new-model-class bets tried. The `aicup-tt-tabpfn` clone env can be removed.
 
+## Private-push v2 — Phase 1 (rare-class macro-F1) REJECTED (2026-05-29)
+
+Plan `2026-05-29-aicup-rareclass-macrof1.md`. Two rebalanced CatBoost variants vs
+the shipped `cat` (sqrt weights). Honest per-row, GPU.
+
+- **`cat_bal`** (full `balanced` class weights): standalone overall **0.299** < cat
+  0.3082 (balanced over-weights ultra-rare classes, hurts argmax).
+- **`cat_os`** (rare-class oversampling, `min_frac=0.3`, `scripts/resample.py`):
+  standalone action **0.2733** (>cat 0.2716 — helps rare action classes) but point
+  0.1642 (worse), overall 0.305.
+- **GPU fix discovered**: CatBoost GPU default `gpu_ram_part=0.95` caused a hard
+  hang at ~cell 19 (sequential fits colliding at 95% RAM). Fixed with
+  `gpu_ram_part=0.45` on GPU fits — benefits all future GPU CatBoost runs.
+
+Ensemble gate (OOF-only nested-CV, baseline 0.32379):
+
+| config | overall | lift |
+|---|---:|---:|
+| production (cat) | 0.32379 | — |
+| cat + cat_bal | 0.32300 | -0.00079 |
+| cat + cat_os | 0.32381 | +0.00001 |
+| cat_os replaces cat | 0.32351 | -0.00029 |
+| cat + cat_os (action-only) | 0.32402 | +0.00022 |
+
+**VERDICT: REJECTED.** Best config (+0.00022) is far below the 0.00168 floor. The
+downstream prior-correction + nested threshold tuning already captures the
+rare-class macro-F1 signal, so training-time rebalancing is redundant. Production
+unchanged (cat-only, 0.32379); `build_final_perrow.py` untouched. cat_bal/cat_os
+scripts + OOF/test parquets kept for reproducibility (not in BASES). Proceeding to
+Phase 2 (XGBoost-GPU + FT-Transformer diverse bases).
+
 ## Where we are
 
 - Spec: `docs/superpowers/specs/2026-05-27-aicup-score-improvements-design.md` (Draft, awaiting user review — but execution has begun per user instruction).
