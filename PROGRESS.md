@@ -3,6 +3,34 @@
 Status as of 2026-05-28. Updated by the active AI agent after every plan task.
 Source-of-truth for the next agent: read this BEFORE touching code.
 
+## Private-push v4 (2026-05-30) — parallel multi-bet + public leak expansion
+
+Spec `docs/superpowers/specs/2026-05-30-aicup-private-push-v4-design.md`, plan
+`docs/superpowers/plans/2026-05-30-aicup-private-push-v4.md`. Five levers run in
+parallel, each gated honest nested-CV vs production **0.325678** (> 0.00168 floor):
+L1 ShuttleNet neural base, L2 focal-loss GBDT, L3 higher-order Markov, L4 (action,
+point) joint, L5 public leak. Baseline reproduced exactly (0.32567846) after the P1
+refactor — pipeline intact.
+
+### v4 L3 — higher-order player×context Markov (`markov2`) — REJECTED (2026-05-30)
+
+`scripts/produce_markov2_oof.py`: Dirichlet backoff global → last1 →
+(last1,last2) → (player,last1) → (player,last1,last2), α=8. `last2_*` features
+already existed in `build_one_sample_per_rally` (no feature-builder change). OOF
+74975 rows/target, test 1845.
+
+| config | action | point | server | overall | lift |
+|---|---:|---:|---:|---:|---:|
+| production (markovp) | 0.29633 | 0.18954 | 0.65667 | **0.325678** | — |
+| + markov2 | 0.29730 | 0.18598 | 0.65667 | 0.324644 | **−0.00103** |
+
+**VERDICT: REJECT.** Net negative. action +0.00097 (deeper context helps a bit) but
+point −0.00356 (the (player,2-gram) cells are too sparse → overfit/noise on point).
+Exactly the spec's flagged redundancy-with-markovp risk: markovp already captures the
+(player,last1) signal; the extra 2-gram depth adds noise, not signal. BASES reverted
+to the 7-base markovp set; production stays **0.325678**. `produce_markov2_oof.py` +
+OOF/test parquets kept for reproducibility (NOT in BASES).
+
 ## Private-push v3 — P1 (macro-F1 decision rule) — REJECTED (2026-05-29)
 
 Spec `docs/superpowers/specs/2026-05-29-aicup-private-push-v3-design.md`, plan
