@@ -14,6 +14,7 @@ import pandas as pd
 from scripts.cv_splits import iter_cv_folds
 from scripts.diagnose_cv_gap import build_one_sample_per_rally
 from scripts.oof_loader import write_oof
+from scripts.resample import oversample_rare
 from scripts.train_lgbm_baseline import (
     TARGET_ACTION_CLASSES,
     TARGET_POINT_CLASSES,
@@ -57,11 +58,17 @@ def run(args) -> None:
         x_train = prepare_x(df_train[feats], cat_cols)
         x_valid = prepare_x(df_valid[feats], cat_cols)
 
-        pa = fit_multiclass(x_train, df_train["y_actionId"], x_valid,
-                            TARGET_ACTION_CLASSES, cat_idx, "sqrt", 9000 + fold, args.iterations,
+        if args.oversample > 0:
+            xa, ya = oversample_rare(x_train, df_train["y_actionId"], 9000 + fold, args.oversample)
+            xp, yp = oversample_rare(x_train, df_train["y_pointId"], 9100 + fold, args.oversample)
+        else:
+            xa, ya = x_train, df_train["y_actionId"]
+            xp, yp = x_train, df_train["y_pointId"]
+        pa = fit_multiclass(xa, ya, x_valid,
+                            TARGET_ACTION_CLASSES, cat_idx, args.weight_mode, 9000 + fold, args.iterations,
                             depth=args.depth, task_type=task_type, devices=devices)
-        pp = fit_multiclass(x_train, df_train["y_pointId"], x_valid,
-                            TARGET_POINT_CLASSES, cat_idx, "sqrt", 9100 + fold, args.iterations,
+        pp = fit_multiclass(xp, yp, x_valid,
+                            TARGET_POINT_CLASSES, cat_idx, args.weight_mode, 9100 + fold, args.iterations,
                             depth=args.depth, task_type=task_type, devices=devices)
         ps = fit_binary(x_train, df_train["y_serverGetPoint"], x_valid,
                         cat_idx, 9200 + fold, args.iterations,
@@ -88,6 +95,8 @@ def main() -> None:
     p.add_argument("--folds", type=int, nargs="*", default=None)
     p.add_argument("--iterations", type=int, default=400)
     p.add_argument("--depth", type=int, default=6)
+    p.add_argument("--weight-mode", default="sqrt", choices=["none", "sqrt", "balanced"])
+    p.add_argument("--oversample", type=float, default=0.0, help="min_frac for rare-class oversampling; 0 disables")
     p.add_argument("--model-name", default="cat")
     p.add_argument("--gpu", action="store_true", help="train CatBoost on the GPU (3090 = device 0)")
     run(p.parse_args())

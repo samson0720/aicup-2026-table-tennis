@@ -99,6 +99,7 @@ def fit_multiclass(
         thread_count=-1,
         task_type=task_type,
         devices=devices,
+        gpu_ram_part=(0.45 if task_type == "GPU" else None),
         classes_count=max(classes) + 1,
         class_weights=class_weights_list,
     )
@@ -132,6 +133,7 @@ def fit_binary(
         thread_count=-1,
         task_type=task_type,
         devices=devices,
+        gpu_ram_part=(0.45 if task_type == "GPU" else None),
         class_weights=[1.0, neg / pos],
     )
     model.fit(x_train, y_train, cat_features=cat_features)
@@ -234,6 +236,7 @@ def fit_full_multiclass(x, y, classes, cat_idx, weight_mode, seed, iterations, d
         thread_count=-1,
         task_type=task_type,
         devices=devices,
+        gpu_ram_part=(0.45 if task_type == "GPU" else None),
         classes_count=max(classes) + 1,
         class_weights=class_weights_list,
     )
@@ -256,6 +259,7 @@ def fit_full_binary(x, y, cat_idx, seed, iterations, depth=6, task_type="CPU", d
         thread_count=-1,
         task_type=task_type,
         devices=devices,
+        gpu_ram_part=(0.45 if task_type == "GPU" else None),
         class_weights=[1.0, neg / pos],
     )
     model.fit(x, y, cat_features=cat_idx)

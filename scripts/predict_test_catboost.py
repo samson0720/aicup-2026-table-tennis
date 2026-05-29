@@ -14,6 +14,7 @@ import pandas as pd
 
 from scripts.make_lgbm_submission import build_test_dataset
 from scripts.predict_test_base import _write_test_parquet
+from scripts.resample import oversample_rare
 from scripts.train_lgbm_baseline import (
     TARGET_ACTION_CLASSES,
     TARGET_POINT_CLASSES,
@@ -38,7 +39,7 @@ def _full_train_features(train: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def run(iterations: int = 600, depth: int = 6, model_name: str = "cat", gpu: bool = True) -> None:
+def run(iterations: int = 600, depth: int = 6, weight_mode: str = "sqrt", oversample: float = 0.0, model_name: str = "cat", gpu: bool = True) -> None:
     task_type = "GPU" if gpu else "CPU"
     devices = "0" if gpu else None
     print(f"{model_name} test: task_type={task_type} devices={devices} iterations={iterations} depth={depth}", flush=True)
@@ -55,8 +56,14 @@ def run(iterations: int = 600, depth: int = 6, model_name: str = "cat", gpu: boo
     x_train = prepare_x(df_train[feats], cat_cols)
     x_test = prepare_x(test_features[feats], cat_cols)
 
-    action_model = fit_full_multiclass(x_train, df_train["y_actionId"], TARGET_ACTION_CLASSES, cat_idx, "sqrt", 9000, iterations, depth=depth, task_type=task_type, devices=devices)
-    point_model = fit_full_multiclass(x_train, df_train["y_pointId"], TARGET_POINT_CLASSES, cat_idx, "sqrt", 9100, iterations, depth=depth, task_type=task_type, devices=devices)
+    if oversample > 0:
+        xa, ya = oversample_rare(x_train, df_train["y_actionId"], 9000, oversample)
+        xp, yp = oversample_rare(x_train, df_train["y_pointId"], 9100, oversample)
+    else:
+        xa, ya = x_train, df_train["y_actionId"]
+        xp, yp = x_train, df_train["y_pointId"]
+    action_model = fit_full_multiclass(xa, ya, TARGET_ACTION_CLASSES, cat_idx, weight_mode, 9000, iterations, depth=depth, task_type=task_type, devices=devices)
+    point_model = fit_full_multiclass(xp, yp, TARGET_POINT_CLASSES, cat_idx, weight_mode, 9100, iterations, depth=depth, task_type=task_type, devices=devices)
     server_model = fit_full_binary(x_train, df_train["y_serverGetPoint"], cat_idx, 9200, iterations, depth=depth, task_type=task_type, devices=devices)
 
     rally = test_features["rally_uid"].to_numpy()
@@ -76,10 +83,12 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--iterations", type=int, default=600)
     p.add_argument("--depth", type=int, default=6)
+    p.add_argument("--weight-mode", default="sqrt", choices=["none", "sqrt", "balanced"])
+    p.add_argument("--oversample", type=float, default=0.0, help="min_frac for rare-class oversampling; 0 disables")
     p.add_argument("--model-name", default="cat")
     p.add_argument("--cpu", action="store_true")
     args = p.parse_args()
-    run(iterations=args.iterations, depth=args.depth, model_name=args.model_name, gpu=not args.cpu)
+    run(iterations=args.iterations, depth=args.depth, weight_mode=args.weight_mode, oversample=args.oversample, model_name=args.model_name, gpu=not args.cpu)
 
 
 if __name__ == "__main__":
