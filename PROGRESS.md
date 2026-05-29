@@ -279,6 +279,19 @@ Standalone honest: action 0.2499, point 0.1705, server 0.6339, overall **0.2949*
 **REJECTED.** Test inference skipped (won't ship). Scripts + OOF kept for
 reproducibility; not in BASES.
 
+### 2-B: FT-Transformer (GPU neural-tabular) — REJECTED at pilot
+
+`scripts/ft_transformer.py` (numerical feature tokenizer → transformer → CLS →
+multi-task heads, class-weighted CE; pure PyTorch, no new deps) +
+`scripts/produce_ft_oof.py`. Pilot (seed 11 × folds 0-2) monitor (argmax)
+plateaued at overall **~0.24** (best fold-0 0.2401; action ~0.13-0.20, point
+~0.09-0.10) — far below the GBDT bases (~0.30) and no better than the already-
+rejected seq Transformer (0.24, which added nothing to the stack). Neural models
+on the engineered tabular features don't beat the GBDTs that already exploit
+those features. **REJECTED at the pilot gate** — full 25-fold + test skipped to
+avoid wasting compute (consistent with seq/TabPFN). ft_pilot parquets discarded;
+`ft_transformer.py`/`produce_ft_oof.py` kept for reproducibility.
+
 ## Where we are
 
 - Spec: `docs/superpowers/specs/2026-05-27-aicup-score-improvements-design.md` (Draft, awaiting user review — but execution has begun per user instruction).
