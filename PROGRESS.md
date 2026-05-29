@@ -31,6 +31,31 @@ Exactly the spec's flagged redundancy-with-markovp risk: markovp already capture
 to the 7-base markovp set; production stays **0.325678**. `produce_markov2_oof.py` +
 OOF/test parquets kept for reproducibility (NOT in BASES).
 
+### v4 L2 — focal-loss GBDT (`lgbm_focal`) — REJECTED (2026-05-30)
+
+`scripts/focal_loss.py` (multiclass focal custom objective, LightGBM 4.x params-
+objective) + `scripts/produce_lgbm_focal_oof.py`. Two implementation bugs found and
+fixed during bring-up: (1) scaling the hessian by the focal factor → underfit
+(trees won't split, standalone macro-F1 ~0.04); (2) bare p*(1-p) hessian → 0 at
+saturation → runaway leaf values (raw margins ~5e5, one-hot probs, ~0.14). Fixed by
+flooring the standard softmax hessian at 0.1 (commits 5fddd71, dfaf8c6). γ=2.
+
+Standalone (full OOF, floored hessian): action **0.2191**, point **0.0967** — below
+every existing GBDT base (cat 0.2716/0.1739, lgbm15 0.2587/0.1730).
+
+| config | action | point | server | overall | lift |
+|---|---:|---:|---:|---:|---:|
+| production | 0.29633 | 0.18954 | 0.65667 | **0.325678** | — |
+| + lgbm_focal (action+point) | 0.29489 | 0.18949 | 0.65667 | 0.325087 | **−0.00059** |
+
+**VERDICT: REJECT.** Net negative (action −0.00144, point flat). focal loss did not
+deliver the literature's macro-F1 gain on this 19-class / ~12k-rows-per-fold /
+heavily-engineered-feature setup — it underfits/destabilizes relative to the sqrt
+class-weighted GBDTs, and as a same-class (LightGBM) base adds no ensemble diversity.
+γ=1 not pursued: action+point both clearly weaker standalone, so a second γ cannot
+flip the diversity verdict (the depth-8/redundancy lesson). BASES reverted; production
+stays **0.325678**. Scripts/parquets kept for reproducibility (NOT in BASES).
+
 ### v4 L1 — ShuttleNet-style neural base — PILOT GREEN, PROCEED (2026-05-30)
 
 `scripts/shuttle_model.py` (`ShuttleForecaster`: rally-progress enc + player-style
