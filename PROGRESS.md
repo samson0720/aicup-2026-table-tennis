@@ -76,6 +76,43 @@ embeddings + position-aware gated fusion) is the difference. Proceeding to L1.4:
 25-fold OOF + test + integration A/B gate vs 0.325678. NOTE: data-loading-bound
 (GPU idle, RallyPrefixDataset single-thread); add DataLoader num_workers for the full run.
 
+### v4 L1.4 — ShuttleNet full integration — REJECTED (near-miss) (2026-05-30)
+
+Full 25-fold OOF (seeds 11/22/33/44/55, d256/l4/h4/ffn768, 50ep patience12,
+num_workers=6 on the 3090; commit 69ed1a1 added --num-workers — training was
+data-loading-bound with the single-thread `RallyPrefixDataset`). `_write_oof` only at
+the end; test inference via `--predict-test` (full-train, 1845 rows).
+
+Standalone (full OOF, honest): action **0.2589** (≈ lgbm15 0.2587), point **0.1849**
+— **the single best point base in the ensemble** (> cat 0.1739). The full-population
+numbers sit below the pilot slice (0.2681/0.1828, seed11×folds0-2) as expected.
+
+| config | action | point | server | overall | lift |
+|---|---:|---:|---:|---:|---:|
+| production (7-base) | 0.29633 | 0.18954 | 0.65667 | **0.325678** | — |
+| + shuttle (action+point) | 0.29851 | 0.19086 | 0.65667 | 0.327081 | **+0.00140** |
+
+**+0.00140 is the strongest, and only positive, lift of the entire v4 campaign**, and
+it improves BOTH macro-F1 targets consistently (action +0.00218, point +0.00132) —
+mechanistically real (a decorrelated architecture; point is its best target, and point
+is our weakest). BUT it is **below the across-seed noise floor 0.00168 (0.83×)**.
+
+**Capacity-bump retry (shuttle_big, d320/l6/h8/ffn1024, 60ep patience15):** standalone
+action **0.2559** / point **0.1827** — *worse* than base shuttle on both. The base
+shuttle early-stops at best_epoch ~10–13, so it is **at capacity for this data, not
+undertrained**; more capacity slightly overfits. shuttle_big therefore cannot exceed
+base shuttle's +0.00140, so its A/B was not run (bounded above by a sub-floor result).
+
+**VERDICT: REJECT (sub-floor), per the pre-committed gate (lift must exceed 0.00168).**
+Production stays the 7-base ensemble, overall **0.325678**. This is the closest miss in
+three campaigns and the first competitive neural model — `scripts/shuttle_model.py` /
+`train_shuttle.py` + the `shuttle_*` OOF/test parquets are KEPT and fully reproducible.
+**USER DECISION FLAGGED:** if you judge the consistent two-target +0.00140 worth taking
+over the conservative reseed-noise floor, shipping is a one-line change — add
+`"shuttle"` to the action+point lists in `build_final_perrow.py:BASES` and rebuild
+(overall → 0.327081). Not done autonomously (discipline: sub-floor = reject, same gate
+that rejected markov2/joint/focal and historically seq2 at +0.00098).
+
 ### v4 L4 — structured (action, point) joint base (`joint`) — REJECTED (2026-05-30)
 
 `scripts/produce_joint_oof.py`: OOF-safe smoothed P(point|action) (Dirichlet α=4,
