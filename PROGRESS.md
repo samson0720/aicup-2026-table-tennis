@@ -3,39 +3,56 @@
 Status as of 2026-05-28. Updated by the active AI agent after every plan task.
 Source-of-truth for the next agent: read this BEFORE touching code.
 
-## Private-push v3 — P1 (macro-F1 decision rule) gate result — SHIP `calibrated` (2026-05-29)
+## Private-push v3 — P1 (macro-F1 decision rule) — REJECTED (2026-05-29)
 
 Spec `docs/superpowers/specs/2026-05-29-aicup-private-push-v3-design.md`, plan
 `docs/superpowers/plans/2026-05-29-aicup-p1-decision-rule.md`. Pluggable decision
 rules in `scripts/decision_rule.py`; gate harness `scripts/eval_decision_rule.py`
-(nested-CV ruler + seed-55 holdout kill switch). Honest per-row throughout.
+(nested-CV ruler + seed-55 holdout). Honest per-row throughout.
 
-Four rules vs the current production rule (`additive_baseline` = prior_correct +
-±0.10 grid, 2 passes). `overall_nested` = 0.4·action + 0.4·point + 0.2·0.6567
-(server untouched by P1).
+**The gate harness FLAGGED a false positive that the production A/B caught.**
 
-| rule | action nested | action holdout | point nested | point holdout | overall | lift |
-|---|---:|---:|---:|---:|---:|---:|
-| additive_baseline | 0.2863 | 0.2821 | 0.1866 | 0.1870 | 0.32050 | — |
-| additive_wide | 0.2859 | 0.2677 | 0.1900 | 0.1914 | 0.32173 | +0.00123 |
-| **calibrated** | **0.2927** | **0.2865** | 0.1881 | 0.1890 | **0.32367** | **+0.00317** |
-| weighted | 0.2859 | 0.2830 | 0.1866 | 0.1904 | 0.32034 | -0.00017 |
+Stage 1 — gate harness (`additive_baseline` used honest per-fold priors):
 
-**VERDICT: SHIP `calibrated`** (per-class isotonic calibration of the meta-stacker
-probs + wide-grid thresholds). Nested lift +0.00317 ≈ 1.9× the 0.00168 floor, and
-it improves BOTH targets on the seed-55 holdout (action +0.0045, point +0.0020) —
-robust, not ruler-overfit. Mechanism: isotonic beats the crude `prior_correct`.
+| rule | action nested | action holdout | point nested | overall | lift |
+|---|---:|---:|---:|---:|---:|
+| additive_baseline | 0.2863 | 0.2821 | 0.1866 | 0.32050 | — |
+| additive_wide | 0.2859 | 0.2677 | 0.1900 | 0.32173 | +0.00123 |
+| calibrated | 0.2927 | 0.2865 | 0.1881 | 0.32367 | +0.00317 |
+| weighted | 0.2859 | 0.2830 | 0.1866 | 0.32034 | -0.00017 |
 
-The seed-55 holdout did its job: `additive_wide` looked good on nested (+0.00123)
-but REGRESSED on the action holdout (0.2821→0.2677) — decision-rule overfit, correctly
-rejected. `weighted` was sub-noise.
+The harness picked `calibrated` (+0.00317, holdout-robust). BUT its `additive_baseline`
+scored only 0.32050 because it uses **honest per-fold priors**, whereas the REAL
+production rule uses the **full-data prior** (a stable, stronger baseline).
 
-Caveat: the harness baseline (0.32050) is ~0.005 below the recorded production
-0.32568 (harness uses honest per-fold priors; production uses full-data prior). The
-rule-vs-rule comparison is internally consistent, but the SHIP is confirmed against
-the REAL production rebuild in Task 7 (must clear 0.32568 + 0.00168), not assumed
-from the harness number. Artifacts: `artifacts/decision_rule_scores.json`,
-`artifacts/decision_rule_run.log`.
+Stage 2 — production A/B (the real `build_final_perrow`, full-y prior; the
+`AICUP_PROD_RULE` env var swaps the rule):
+
+| rule | action | point | server | overall |
+|---|---:|---:|---:|---:|
+| **additive_baseline (= old prod)** | 0.2963 | 0.1895 | 0.6567 | **0.32568** |
+| calibrated | 0.2927 | 0.1881 | 0.6567 | 0.32366 (**-0.00202**) |
+
+**VERDICT: REJECT.** `calibrated` ignores the prior (isotonic), so it scores ~0.3237
+under both prior conventions — it beat the weak per-fold-prior harness baseline but
+LOSES to the real full-data-prior production rule by -0.00202. Production stays
+`additive_baseline`, overall **0.32568** (unchanged). `additive_wide` also failed
+(overfit: action holdout 0.2821→0.2677); `weighted` was sub-noise.
+
+**LESSON (for P2-P4 and future gates):** a gate harness's baseline MUST reproduce the
+exact production rule, including the prior convention. The per-fold-prior baseline
+under-measured production by ~0.005 and produced a false SHIP. Always confirm a SHIP
+in the real `build_final_perrow` A/B before trusting a standalone harness. The
+`additive_baseline` rule in the refactored builder is asserted byte-equivalent to the
+legacy pipeline (`tests/test_build_final_rule.py`) and the A/B reproduced 0.32568
+exactly, so the refactor itself is safe/behaviour-preserving.
+
+The pluggable decision-rule refactor (`decision_rule.py`, `eval_decision_rule.py`,
+the rule-factory `_nested_f1`) is KEPT as reproducible tooling for later phases, with
+`PROD_RULE` defaulting to `additive_baseline`. Untried-but-plausible follow-up (not
+pursued — ruler-overfit risk + diminishing returns): a `calibrated` variant that
+prior-corrects BEFORE isotonic, to combine the prior boost with calibration.
+Artifacts: `artifacts/decision_rule_scores.json`, `artifacts/p1_build_{baseline,calibrated}.log`.
 
 
 ## CRITICAL CORRECTION (2026-05-28): seed-averaging inflated the stack scores

@@ -13,6 +13,7 @@ per-row distribution.
 from __future__ import annotations
 
 import json
+import os
 import pickle
 from pathlib import Path
 
@@ -23,7 +24,7 @@ from sklearn.metrics import f1_score, roc_auc_score
 from sklearn.model_selection import GroupKFold
 
 from scripts.oof_loader import OOF_DIR, read_oof
-from scripts.postprocess import apply_thresholds, prior_correct, tune_thresholds
+from scripts.decision_rule import RULES
 from scripts.score_oof import attach_labels, overall
 
 BASES = {
@@ -35,6 +36,15 @@ KEYS = ["rally_uid", "seed", "fold", "cut_strikeNumber"]
 SPEC = [("multiclass", "action", 19, "actionId"),
         ("multiclass", "point", 10, "pointId"),
         ("binary", "server", 1, "serverGetPoint")]
+
+# Production macro-F1 decision rule (P1, private-push v3). "additive_baseline" =
+# prior_correct(full-y prior) + ±0.10 grid threshold tuning, the rule that produces
+# the 0.32568 production overall. P1 candidates (calibrated/additive_wide/weighted)
+# were REJECTED: the per-fold-prior gate harness favoured `calibrated`, but the real
+# full-y-prior production A/B showed it REGRESSES (-0.00202). The refactor is kept
+# (pluggable + tested-equivalent to the legacy pipeline) for future phases.
+# Override with AICUP_PROD_RULE to reproduce the A/B.
+PROD_RULE = os.environ.get("AICUP_PROD_RULE", "additive_baseline")
 
 
 def _data_dir() -> Path:
@@ -87,12 +97,21 @@ def _stack_oof(X, y, groups, kind, n_cls, n_folds=5):
     return out
 
 
-def _nested_f1(corrected, y, groups, n_cls, n_folds=5):
-    """Honest macro-F1: tune thresholds on train folds, score on held-out folds."""
+def _nested_f1(stk, y, groups, n_cls, n_folds=5, rule_factory=None):
+    """Honest macro-F1 via the pluggable decision rule, nested over folds.
+
+    `stk` are the RAW stacked OOF probabilities; the rule applies its own
+    calibration/correction internally. The full-data class prior is passed to both
+    fit and predict so the `additive_baseline` rule reproduces the legacy pipeline
+    (prior_correct with the full-y prior + nested threshold tuning) exactly.
+    """
+    rule_factory = rule_factory or RULES[PROD_RULE]
+    prior = np.bincount(y, minlength=n_cls).astype(float)
+    prior /= prior.sum()
     yhat = np.zeros(len(y), dtype=int)
-    for tr, va in GroupKFold(n_splits=n_folds).split(corrected, y, groups):
-        thr = tune_thresholds(corrected[tr], y[tr], n_cls)
-        yhat[va] = apply_thresholds(corrected[va], thr)
+    for tr, va in GroupKFold(n_splits=n_folds).split(stk, y, groups):
+        rule = rule_factory().fit(stk[tr], y[tr], n_cls, prior)
+        yhat[va] = rule.predict(stk[va], n_cls, prior)
     return float(f1_score(y, yhat, labels=list(range(n_cls)), average="macro", zero_division=0))
 
 
@@ -103,7 +122,7 @@ def main() -> None:
     rally_uids = np.sort(test["rally_uid"].unique())
 
     scores: dict[str, float] = {}
-    deploy_thr: dict[str, np.ndarray] = {}
+    deploy_rule: dict[str, object] = {}
     submission: dict[str, np.ndarray] = {"rally_uid": rally_uids}
 
     for kind, target, n_cls, y_col in SPEC:
@@ -123,10 +142,9 @@ def main() -> None:
             scores["server_auc"] = float(roc_auc_score(y, stk[:, 0]))
         else:
             prior = np.bincount(y, minlength=n_cls).astype(float); prior /= prior.sum()
-            corrected = prior_correct(stk, prior)
-            scores[f"{target}_macro_f1"] = _nested_f1(corrected, y, groups, n_cls)
-            # deployment thresholds: tuned on ALL OOF (no test labels available)
-            deploy_thr[target] = tune_thresholds(corrected, y, n_cls)
+            scores[f"{target}_macro_f1"] = _nested_f1(stk, y, groups, n_cls)
+            # deployment rule: fit on ALL OOF raw stacked probs (no test labels available)
+            deploy_rule[target] = RULES[PROD_RULE]().fit(stk, y, n_cls, prior)
 
         # ---- test-time prediction (single-cut per rally, distribution-matched) ----
         if kind == "multiclass":
@@ -144,7 +162,7 @@ def main() -> None:
             for i, c in enumerate(clf.classes_):
                 aligned[:, int(c)] = raw[:, i]
             prior = np.bincount(y, minlength=n_cls).astype(float); prior /= prior.sum()
-            pred = apply_thresholds(prior_correct(aligned, prior), deploy_thr[target])
+            pred = deploy_rule[target].predict(aligned, n_cls, prior)
             submission[y_col] = pred.astype(int)
         else:
             submission["serverGetPoint"] = clf.predict_proba(Xt)[:, list(clf.classes_).index(1)]
