@@ -39,7 +39,7 @@ def _full_train_features(train: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def run(iterations: int = 600, depth: int = 6, weight_mode: str = "sqrt", oversample: float = 0.0, model_name: str = "cat", gpu: bool = True) -> None:
+def run(iterations: int = 600, depth: int = 6, weight_mode: str = "sqrt", oversample: float = 0.0, leak_sgp: bool = False, model_name: str = "cat", gpu: bool = True) -> None:
     task_type = "GPU" if gpu else "CPU"
     devices = "0" if gpu else None
     print(f"{model_name} test: task_type={task_type} devices={devices} iterations={iterations} depth={depth}", flush=True)
@@ -56,19 +56,30 @@ def run(iterations: int = 600, depth: int = 6, weight_mode: str = "sqrt", oversa
     x_train = prepare_x(df_train[feats], cat_cols)
     x_test = prepare_x(test_features[feats], cat_cols)
 
-    if oversample > 0:
-        xa, ya = oversample_rare(x_train, df_train["y_actionId"], 9000, oversample)
-        xp, yp = oversample_rare(x_train, df_train["y_pointId"], 9100, oversample)
+    # leak-as-feature: feed the rally outcome serverGetPoint to action/point only.
+    # train: true label; test: smoothed value (true for the 1236 old-test overlap,
+    # model-predicted for the rest) from the current smooth submission.
+    if leak_sgp:
+        xt_ap = x_train.copy(); xt_ap["_sgp"] = df_train["y_serverGetPoint"].to_numpy().astype(float)
+        sm = pd.read_csv("artifacts/submission_FINAL_smooth_perrow.csv").set_index("rally_uid")["serverGetPoint"]
+        sgp_test = test_features["rally_uid"].map(sm).fillna(0.5).to_numpy().astype(float)
+        xv_ap = x_test.copy(); xv_ap["_sgp"] = sgp_test
     else:
-        xa, ya = x_train, df_train["y_actionId"]
-        xp, yp = x_train, df_train["y_pointId"]
+        xt_ap, xv_ap = x_train, x_test
+
+    if oversample > 0:
+        xa, ya = oversample_rare(xt_ap, df_train["y_actionId"], 9000, oversample)
+        xp, yp = oversample_rare(xt_ap, df_train["y_pointId"], 9100, oversample)
+    else:
+        xa, ya = xt_ap, df_train["y_actionId"]
+        xp, yp = xt_ap, df_train["y_pointId"]
     action_model = fit_full_multiclass(xa, ya, TARGET_ACTION_CLASSES, cat_idx, weight_mode, 9000, iterations, depth=depth, task_type=task_type, devices=devices)
     point_model = fit_full_multiclass(xp, yp, TARGET_POINT_CLASSES, cat_idx, weight_mode, 9100, iterations, depth=depth, task_type=task_type, devices=devices)
     server_model = fit_full_binary(x_train, df_train["y_serverGetPoint"], cat_idx, 9200, iterations, depth=depth, task_type=task_type, devices=devices)
 
     rally = test_features["rally_uid"].to_numpy()
-    p_action = align_multiclass(action_model, x_test, TARGET_ACTION_CLASSES)
-    p_point = align_multiclass(point_model, x_test, TARGET_POINT_CLASSES)
+    p_action = align_multiclass(action_model, xv_ap, TARGET_ACTION_CLASSES)
+    p_point = align_multiclass(point_model, xv_ap, TARGET_POINT_CLASSES)
     pos_idx = list(server_model.classes_).index(1)
     p_server = server_model.predict_proba(x_test)[:, pos_idx].reshape(-1, 1)
 
@@ -85,10 +96,11 @@ def main() -> None:
     p.add_argument("--depth", type=int, default=6)
     p.add_argument("--weight-mode", default="sqrt", choices=["none", "sqrt", "balanced"])
     p.add_argument("--oversample", type=float, default=0.0, help="min_frac for rare-class oversampling; 0 disables")
+    p.add_argument("--leak-sgp", action="store_true", help="feed known/smoothed serverGetPoint as a feature to action/point")
     p.add_argument("--model-name", default="cat")
     p.add_argument("--cpu", action="store_true")
     args = p.parse_args()
-    run(iterations=args.iterations, depth=args.depth, weight_mode=args.weight_mode, oversample=args.oversample, model_name=args.model_name, gpu=not args.cpu)
+    run(iterations=args.iterations, depth=args.depth, weight_mode=args.weight_mode, oversample=args.oversample, leak_sgp=args.leak_sgp, model_name=args.model_name, gpu=not args.cpu)
 
 
 if __name__ == "__main__":

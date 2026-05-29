@@ -352,6 +352,30 @@ Second lever to ship after CatBoost; the only v2-era idea that cleared the gate.
 (Still nowhere near 0.4 — that remains leak/public-only territory; this is an
 honest private gain.)
 
+## Leak-max (public) submission — outcome-as-feature (2026-05-29)
+
+User directive: maximize the competition score by every permitted means (COI
+caution overridden; see [[user-role-aicup]]). The one permitted leak is
+serverGetPoint (known for 1236/1845 test rallies via old-test; organizer-allowed
+as training data).
+
+- **Measured leak-as-feature**: feed true serverGetPoint as a FEATURE to the
+  action/point models (`--leak-sgp` in produce_catboost_oof / predict_test_catboost).
+  OOF (full leak): point macro-F1 **0.1739 → 0.2142 (+0.0403)**, action +0.0008
+  (the rally outcome predicts LANDING, not stroke type). cat_sgp overall 0.3082→0.3246.
+- **Deployment** (`scripts/build_leakmax_submission.py`): keep the honest
+  submission untouched; build a separate `submission_FINAL_leakmax.csv` =
+  smooth submission with **point overridden by cat_sgp on the 1236 overlap
+  rallies** (true serverGetPoint known there) + server smoothing. Changed point
+  on 749 rallies; action/server unchanged.
+- **Realistic gain**: leak covers ~67% of test (likely the public portion);
+  point boost applies there → modest bump over the ~0.41 smooth baseline. Exact
+  public number needs an upload. **Not alone enough to reach the #1 ~0.55** —
+  action has no outcome-leak lever, so toppers likely also use LB-probing or
+  other tricks. Within rules (programmatic, organizer-permitted data).
+- **Honest/private submission unchanged**: `submission_FINAL_safe_perrow.csv`
+  (cat+markovp, 0.32568) remains the clean private bet; leak only helps public.
+
 ## Where we are
 
 - Spec: `docs/superpowers/specs/2026-05-27-aicup-score-improvements-design.md` (Draft, awaiting user review — but execution has begun per user instruction).

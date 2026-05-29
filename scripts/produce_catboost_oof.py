@@ -58,16 +58,24 @@ def run(args) -> None:
         x_train = prepare_x(df_train[feats], cat_cols)
         x_valid = prepare_x(df_valid[feats], cat_cols)
 
-        if args.oversample > 0:
-            xa, ya = oversample_rare(x_train, df_train["y_actionId"], 9000 + fold, args.oversample)
-            xp, yp = oversample_rare(x_train, df_train["y_pointId"], 9100 + fold, args.oversample)
+        # leak-as-feature: feed the known rally outcome serverGetPoint to the
+        # action/point models only (NEVER the server model — that's its own label).
+        if args.leak_sgp:
+            xt_ap = x_train.copy(); xt_ap["_sgp"] = df_train["y_serverGetPoint"].to_numpy().astype(float)
+            xv_ap = x_valid.copy(); xv_ap["_sgp"] = df_valid["y_serverGetPoint"].to_numpy().astype(float)
         else:
-            xa, ya = x_train, df_train["y_actionId"]
-            xp, yp = x_train, df_train["y_pointId"]
-        pa = fit_multiclass(xa, ya, x_valid,
+            xt_ap, xv_ap = x_train, x_valid
+
+        if args.oversample > 0:
+            xa, ya = oversample_rare(xt_ap, df_train["y_actionId"], 9000 + fold, args.oversample)
+            xp, yp = oversample_rare(xt_ap, df_train["y_pointId"], 9100 + fold, args.oversample)
+        else:
+            xa, ya = xt_ap, df_train["y_actionId"]
+            xp, yp = xt_ap, df_train["y_pointId"]
+        pa = fit_multiclass(xa, ya, xv_ap,
                             TARGET_ACTION_CLASSES, cat_idx, args.weight_mode, 9000 + fold, args.iterations,
                             depth=args.depth, task_type=task_type, devices=devices)
-        pp = fit_multiclass(xp, yp, x_valid,
+        pp = fit_multiclass(xp, yp, xv_ap,
                             TARGET_POINT_CLASSES, cat_idx, args.weight_mode, 9100 + fold, args.iterations,
                             depth=args.depth, task_type=task_type, devices=devices)
         ps = fit_binary(x_train, df_train["y_serverGetPoint"], x_valid,
@@ -97,6 +105,7 @@ def main() -> None:
     p.add_argument("--depth", type=int, default=6)
     p.add_argument("--weight-mode", default="sqrt", choices=["none", "sqrt", "balanced"])
     p.add_argument("--oversample", type=float, default=0.0, help="min_frac for rare-class oversampling; 0 disables")
+    p.add_argument("--leak-sgp", action="store_true", help="feed known serverGetPoint as a feature to action/point models")
     p.add_argument("--model-name", default="cat")
     p.add_argument("--gpu", action="store_true", help="train CatBoost on the GPU (3090 = device 0)")
     run(p.parse_args())
