@@ -5,15 +5,19 @@ import numpy as np
 import pandas as pd
 
 
-def prior_correct(probs: np.ndarray, prior: np.ndarray, eps: float = 1e-12) -> np.ndarray:
-    """Divide each class probability by its train prior, then renormalize.
+def prior_correct(
+    probs: np.ndarray, prior: np.ndarray, beta: float = 1.0, eps: float = 1e-12
+) -> np.ndarray:
+    """Divide each class probability by ``prior ** beta``, then renormalize.
 
-    Equivalent to shifting predictions toward a uniform-prior posterior.
-    Common trick to recover macro-F1 when argmax under the original prior
-    collapses to majority classes.
+    ``beta`` is the prior-correction *temperature*. ``beta=1`` (default, backward-
+    compatible) divides by the raw prior, shifting toward a uniform-prior posterior
+    to recover macro-F1 when argmax collapses to majority classes. ``beta=0`` is a
+    no-op (raw argmax). Intermediate values partially debias. (Ported from the
+    teammate's feat/per-target-beta branch; tune per target with the nested ruler.)
     """
     assert probs.shape[1] == prior.shape[0]
-    adjusted = probs / np.clip(prior, eps, None)
+    adjusted = probs / np.clip(prior ** beta, eps, None)
     return adjusted / adjusted.sum(axis=1, keepdims=True)
 
 

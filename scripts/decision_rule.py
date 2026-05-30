@@ -26,13 +26,14 @@ class AdditiveThreshold:
     wide grid run to convergence.
     """
 
-    def __init__(self, grid=None, max_passes: int = 2):
+    def __init__(self, grid=None, max_passes: int = 2, beta: float = 1.0):
         self.grid = grid  # None => tune_thresholds default
         self.max_passes = max_passes
+        self.beta = beta  # prior-correction temperature (1.0 = legacy full correction)
         self.thr = None
 
     def fit(self, probs, y, n_cls, prior):
-        corrected = prior_correct(probs, prior)
+        corrected = prior_correct(probs, prior, self.beta)
         kwargs = {"max_passes": self.max_passes}
         if self.grid is not None:
             kwargs["grid"] = self.grid
@@ -42,7 +43,7 @@ class AdditiveThreshold:
     def predict(self, probs, n_cls, prior):
         if self.thr is None:
             raise RuntimeError("AdditiveThreshold.predict called before fit")
-        corrected = prior_correct(probs, prior)
+        corrected = prior_correct(probs, prior, self.beta)
         return apply_thresholds(corrected, self.thr)
 
 

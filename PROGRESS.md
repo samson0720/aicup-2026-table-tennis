@@ -5,6 +5,41 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 ## v5 — final-rank maximization (2026-05-30, in progress)
 
+### v5 — per-target prior-temperature beta — SHIPPED +0.00261 (2026-05-31) ⭐
+
+**First above-floor honest gain in the whole v5 campaign.** From the teammate branch
+`feat/per-target-beta`: generalize `prior_correct` to divide by `prior ** beta` (beta=1 =
+legacy full correction). Their `select_beta` picked beta on ARGMAX macro-F1 (no thresholds)
+and claimed +0.0273 overall — but that's the P1 argmax-baseline inflation; the honest test
+is OUR nested-THRESHOLD ruler on the 8-base stack. Ported beta into `postprocess.prior_correct`
+(backward-compatible 3rd arg) + `AdditiveThreshold(beta=)` and swept beta∈[0,1.5] per target
+(`scripts/step3_beta_sweep.py`):
+
+| target | beta=1.0 (prod) | best beta | nested-threshold lift |
+|---|---:|---:|---:|
+| action (19) | 0.29851 | **0.6** → 0.30182 | +0.00330 |
+| point (10) | 0.19086 | **0.5** → 0.19408 | +0.00322 |
+
+Broad plateaus (action 0.4–0.7, point 0.3–0.7 all clear the floor), not a fragile spike →
+robust to honest beta selection. **Real `build_final_perrow` A/B confirmed** (baseline
+reproduces 0.3270809552 exactly; betas via `AICUP_BETA_{ACTION,POINT}` env / production
+defaults 0.6/0.5):
+
+| config | action | point | server | overall | lift |
+|---|---:|---:|---:|---:|---:|
+| production (beta=1) | 0.29851 | 0.19086 | 0.65667 | **0.3270810** | — |
+| per-target beta 0.6/0.5 | 0.30182 | 0.19408 | 0.65667 | **0.3296913** | **+0.00261** (floor 0.00168, 1.55×) |
+
+**SHIPPED.** `build_final_perrow.py:BETAS = {action:0.6, point:0.5}` (production default).
+All submissions rebuilt: **`submission_FINAL_safe_perrow.csv` honest overall 0.329691**;
+smooth + leakmax (cat default) + leakmax_ensemble inherit the action+non-leak-point gain (so
+beta lifts BOTH the honest bet AND the leaderboard upload). The argmax→threshold gap is exactly
+why we test on the threshold ruler: argmax inflated this ~10× (their +0.0273 vs honest +0.00261),
+but the gain is REAL because beta=1 was a genuinely suboptimal hardcoded default. 68 tests green.
+WHY it works: full prior-correction (beta=1) over-debiases — for 19-class action especially it
+over-boosts rare classes; partial correction (action 0.6) keeps macro-F1's rare-class help
+without the over-shoot, and the threshold tuning then fine-tunes from a better starting point.
+
 ### v5 — canonical leakmax base flipped to cat_sgp-alone (2026-05-30)
 
 The ensemble Track A leakmax (mean(cat_sgp,lgbm_sgp) point override) scored public 0.4191248,

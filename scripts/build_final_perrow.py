@@ -24,7 +24,7 @@ from sklearn.metrics import f1_score, roc_auc_score
 from sklearn.model_selection import GroupKFold
 
 from scripts.oof_loader import OOF_DIR, read_oof
-from scripts.decision_rule import RULES
+from scripts.decision_rule import RULES, AdditiveThreshold
 from scripts.score_oof import attach_labels, overall
 
 BASES = {
@@ -60,6 +60,22 @@ SPEC = [("multiclass", "action", 19, "actionId"),
 # (pluggable + tested-equivalent to the legacy pipeline) for future phases.
 # Override with AICUP_PROD_RULE to reproduce the A/B.
 PROD_RULE = os.environ.get("AICUP_PROD_RULE", "additive_baseline")
+
+# Per-target prior-correction temperature beta (ported from feat/per-target-beta).
+# beta=1.0 = legacy full prior_correct. Honest nested-threshold sweep on the 8-base
+# stack found action~0.6 / point~0.5 optimal (overall +0.00261 > floor 0.00168).
+# Env overrides let us A/B; production defaults below.
+BETAS = {
+    "action": float(os.environ.get("AICUP_BETA_ACTION", "0.6")),
+    "point": float(os.environ.get("AICUP_BETA_POINT", "0.5")),
+}
+
+
+def _rule_factory(target: str):
+    beta = BETAS.get(target, 1.0)
+    if PROD_RULE == "additive_baseline" and beta != 1.0:
+        return lambda: AdditiveThreshold(beta=beta)
+    return RULES[PROD_RULE]
 
 
 def _data_dir() -> Path:
@@ -157,9 +173,10 @@ def main() -> None:
             scores["server_auc"] = float(roc_auc_score(y, stk[:, 0]))
         else:
             prior = np.bincount(y, minlength=n_cls).astype(float); prior /= prior.sum()
-            scores[f"{target}_macro_f1"] = _nested_f1(stk, y, groups, n_cls)
+            factory = _rule_factory(target)
+            scores[f"{target}_macro_f1"] = _nested_f1(stk, y, groups, n_cls, rule_factory=factory)
             # deployment rule: fit on ALL OOF raw stacked probs (no test labels available)
-            deploy_rule[target] = RULES[PROD_RULE]().fit(stk, y, n_cls, prior)
+            deploy_rule[target] = factory().fit(stk, y, n_cls, prior)
 
         # ---- test-time prediction (single-cut per rally, distribution-matched) ----
         if kind == "multiclass":
