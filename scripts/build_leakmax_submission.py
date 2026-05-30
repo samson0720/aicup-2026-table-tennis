@@ -21,17 +21,17 @@ N = 10  # point classes
 def main() -> None:
     ap = argparse.ArgumentParser()
     # Track A point-override source for the 1236 leaked rallies.
-    #   cat      = cat_sgp alone             -> nested point F1 0.1873  (DEFAULT base)
-    #   ensemble = mean(cat_sgp, lgbm_sgp)   -> nested point F1 0.1989  (Track A variant)
-    # DEFAULT is now `cat`: the ensemble Track A upload dropped public -0.00166 vs the
-    # prior cat-alone leak (0.4207827 -> 0.4191248), so cat-alone is the canonical leakmax
-    # base. Any future leakmax rebuild inherits it; the ensemble is kept as a named variant.
-    ap.add_argument("--point-source", choices=["ensemble", "cat"], default="cat")
+    #   ensemble = mean(cat_sgp, lgbm_sgp)   -> nested point F1 0.1989  (DEFAULT)
+    #   cat      = cat_sgp alone             -> nested point F1 0.1873  (variant)
+    # DEFAULT is `ensemble`: a clean same-8-base public A/B proved it +0.0127 BETTER than
+    # cat-alone (ensemble 0.4191248 vs cat-alone 0.4064464). The earlier -0.00166 ensemble
+    # "drop" was the shuttle 8-base, NOT Track A (offline gate also said ensemble +0.0116).
+    ap.add_argument("--point-source", choices=["ensemble", "cat"], default="ensemble")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
     out = args.out or (
-        "artifacts/submission_FINAL_leakmax.csv" if args.point_source == "cat"
-        else "artifacts/submission_FINAL_leakmax_ensemble.csv"
+        "artifacts/submission_FINAL_leakmax.csv" if args.point_source == "ensemble"
+        else "artifacts/submission_FINAL_leakmax_cat.csv"
     )
 
     dd = next(Path.cwd().glob("AI CUP*"))
