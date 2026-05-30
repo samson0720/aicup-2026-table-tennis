@@ -3,6 +3,38 @@
 > **⚡ NEXT SESSION START HERE (2026-05-30) — v5 Track B complete.**
 > Everything below the divider is older history; read PROGRESS.md first.
 
+## ⛔ Levers already TRIED and REJECTED — do NOT re-litigate (read before proposing ideas)
+
+Production = honest 8-base ensemble, overall **0.327081** (unchanged). The ensemble is at
+the **information ceiling**: the next stroke is genuinely unobserved and rallies are short
+(median 5 strokes, ~50% ≤4). Every lever below landed sub-floor (overall floor 0.00168;
+action 0.00525; point 0.00506). New post-processing / re-encoding / variance-reduction does
+NOT move it — only genuinely-new INFORMATION would. All scripts/OOF kept for reproducibility,
+none in `build_final_perrow.py:BASES`.
+
+| lever | what | verdict |
+|---|---|---|
+| seq2 Transformer | full-sequence neural | REJECT +0.00098 |
+| TabPFN v2 | foundation tabular (point/server) | REJECT −0.00146 |
+| XGBoost / FT-Transformer | more bases | REJECT (sub-floor / pilot ~0.24) |
+| focal-loss GBDT, depth-8 cat, rare-class rebalance | objective/tuning | REJECT |
+| markov2 (player×2-gram) | deeper n-gram | REJECT −0.00103 (overfit) |
+| joint P(point\|action) | structured point | REJECT −0.00071 |
+| hill-climb stacker, calibrated/wide decision rules | combiner/rule | REJECT |
+| feature pruning | data-centric | REJECT (neutral) |
+| **displacement / "pressure"** | pointId→XY run distance | REJECT at pilot — even with the **VERIFIED real geometry** ([[aicup-pointid-geometry]]); point +0.00121 (¼ floor), action negative |
+| **markovz (player×landing-zone)** | P(action\|player,zone) | REJECT −0.00008 (redundant w/ markovp + GBDT raw player+zone) |
+| pseudo-labeling | self-train on test | NOT done — amplifies majority bias vs macro-F1; covariate shift is minimal |
+| serve-class rule zeroing | force P(15-18)=0 at strike≥2 | NO-OP (model never predicts them; fixed-19-label macro-F1) |
+| multi-seed blend | avg model-init seeds at test | NOT done — can't gate on local CV (OOF seed = cut seed); expected sub-floor on a stacked ensemble |
+
+**Only thing that moved real score = the serverGetPoint LEAK** (Track A, deployed in leakmax).
+
+**OPEN public A/B (user action):** upload `submission_FINAL_leakmax_catonly.csv` to isolate
+whether the ensemble-leakmax −0.00166 public drop (0.4207827→0.4191248) is Track A or the
+shuttle 8-base. catonly = cat_sgp-alone point override on the same 8-base (differs from the
+shipped ensemble leakmax on 392/1845 rallies' point; action/server identical).
+
 ## Next-session handoff: v5 Track B
 
 Read first: `PROGRESS.md` (top "v5"/"v4" sections),
