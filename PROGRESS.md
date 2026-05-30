@@ -3,6 +3,27 @@
 Status as of 2026-05-27. Updated by the active AI agent after every plan task.
 Source-of-truth for the next agent: read this BEFORE touching code.
 
+## 2026-05-30: per-target prior-temperature (beta) + new public best 0.4247437
+
+- Added `beta` to `postprocess.prior_correct` (default 1.0, backward compatible)
+  and `select_beta()` honest-CV selector. Wired into `train_chain_lgbm.score_chain`
+  (writes `route_b_beta_*.json`) and the canonical `build_final_perrow.py`
+  (`_select_beta_nested`). actionId picks beta≈0.6, pointId beta≈0.4 (was
+  hardcoded 1). Clean same-base ensemble lift = **+0.0028 overall** (~1.7σ;
+  action +0.0026, point +0.0044). No downside (server untouched).
+- Regenerated all 4 base OOF + test parquets locally on the Mac (~36 min CPU)
+  and rebuilt the canonical ensemble. Honest local-CV overall = **0.3231**.
+- `submission_FINAL_smooth_perrow.csv` scored **0.4247437** on public LB
+  (prev best 0.4102132, +0.0145; both smoothed → real model gain).
+- Fixed `build_final_perrow.py` for sklearn≥1.7 (removed dropped `multi_class`
+  arg; behavior-preserving). STILL present in stacker.py,
+  build_route_a_submission.py, build_final_submissions.py,
+  diag_perrow_vs_seedavg.py — fix if those are run on new sklearn.
+- Local Mac env recipe (no conda/Homebrew): see README.md "重新產生 submission B".
+- Diagnostics added: scripts/diag_per_class_f1.py, scripts/diag_prior_headroom.py.
+- Next best ROI (transformer is NOT it — data too small/short): add an XGBoost
+  base for stacker diversity, then pointId feature engineering.
+
 ## CRITICAL CORRECTION (2026-05-28): seed-averaging inflated the stack scores
 
 The reported final ensemble overall **0.3497 was inflated and unrealizable.**

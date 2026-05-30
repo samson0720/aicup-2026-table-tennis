@@ -1,21 +1,26 @@
 # AI CUP Table Tennis Handoff
 
-## Current best public result
+## Current best public result (updated 2026-05-30)
 
-- Uploaded file: `artifacts/submission_RECOMMENDED_upload.csv`
-- Public score: `0.4102132`
-- Rank at time checked: `45/333`
+- Uploaded file: `artifacts/submission_FINAL_smooth_perrow.csv`
+- Public score: **`0.4247437`**
+- What it is: new per-row A+B ensemble + per-target prior-temperature (beta)
+  selection + old-test serverGetPoint smoothing. Beats the prior best
+  (`submission_RECOMMENDED_upload.csv` = 0.4102132) by **+0.0145**. Both files
+  use smoothing, so the gain is genuine MODEL improvement, not smoothing.
+- Clean (no-smoothing) counterpart / private bet: `submission_FINAL_safe_perrow.csv`.
+- Honest local-CV ensemble overall = 0.3231 (action 0.2921 / point 0.1880 /
+  server 0.6557), +0.0204 over best base lgbm15 (0.3027).
+- Caveat: these two files were regenerated on the local Mac (lightgbm 4.6 /
+  sklearn 1.8), not the original Linux conda `aicup-tt` env. Within-noise, but a
+  formal final submission should be re-run on the original env. See README.md
+  "重新產生 submission".
 
-Second upload was lower:
+### Prior public probes (history)
 
-- Uploaded file: `artifacts/submission_CANDIDATE2_lgbm_sqrt_leaves15.csv`
-- Public score: `0.3990370`
-
-Third upload was a clean, no-leakage-proxy submission:
-
-- Uploaded file: `artifacts/submission_CLEAN_lgbm_sqrt_leaves15.csv`
-- Public score: `0.3263827`
-- Rank at time checked: `157/335`
+- `submission_RECOMMENDED_upload.csv`: `0.4102132` (rank 45/333), smoothed.
+- `submission_CANDIDATE2_lgbm_sqrt_leaves15.csv`: `0.3990370`, smoothed.
+- `submission_CLEAN_lgbm_sqrt_leaves15.csv`: `0.3263827` (rank 157/335), clean.
 
 ## Clean-base public LB probes (2026-05-27, 3-shot probe)
 
