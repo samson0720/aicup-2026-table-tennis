@@ -139,9 +139,25 @@ class WeightedArgmax:
         return (corrected * self.w[None, :]).argmax(1)
 
 
+class Argmax:
+    """Pure argmax of the stacked (calibrated) probabilities — ACCURACY-optimal.
+
+    No prior-correction, no threshold tuning. If the official metric is accuracy /
+    micro-F1 (not macro-F1), this is correct; prior-correction shifts mass to rare
+    classes and DESTROYS accuracy (~-0.16 action / -0.12 point measured).
+    """
+
+    def fit(self, probs, y, n_cls, prior):
+        return self
+
+    def predict(self, probs, n_cls, prior):
+        return probs.argmax(1)
+
+
 RULES = {
     "additive_baseline": lambda: AdditiveThreshold(),
     "additive_wide": lambda: AdditiveThreshold(grid=WIDE_GRID, max_passes=10),
     "calibrated": lambda: CalibratedThreshold(),
     "weighted": lambda: WeightedArgmax(),
+    "argmax": lambda: Argmax(),
 }
