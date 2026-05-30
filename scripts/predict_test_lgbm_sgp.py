@@ -41,7 +41,7 @@ def main() -> None:
     dummy = pd.Series(np.zeros(len(x_test), dtype=int))
     probs = fit_multiclass(x_train, df_train["y_pointId"], x_test, dummy,
                            TARGET_POINT_CLASSES, "sqrt", 3026, 180, 15)
-    _write_test_parquet(model_name="lgbm_sgp", target="point", rally_uids=rally, probs=probs)
+    _write_test_parquet("lgbm_sgp", "point", rally, probs)
 
 
 if __name__ == "__main__":
