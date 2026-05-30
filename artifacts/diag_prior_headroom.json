@@ -1,0 +1,21 @@
+{
+  "action": {
+    "selected_beta": 0.0,
+    "select_beta_cv_f1": 0.2681,
+    "held_out_f1_beta1": 0.2105,
+    "held_out_f1_selected": 0.2619,
+    "reported_f1_beta1": 0.288,
+    "reported_f1_selected": 0.2818,
+    "honest_lift": 0.0514
+  },
+  "point": {
+    "selected_beta": 0.5,
+    "select_beta_cv_f1": 0.1806,
+    "held_out_f1_beta1": 0.1629,
+    "held_out_f1_selected": 0.1797,
+    "reported_f1_beta1": 0.1817,
+    "reported_f1_selected": 0.1857,
+    "honest_lift": 0.0168
+  },
+  "est_overall_lift_from_f1": 0.0273
+}
