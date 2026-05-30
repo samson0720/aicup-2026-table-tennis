@@ -3,11 +3,59 @@ import pandas as pd
 
 from scripts.postprocess import (
     prior_correct,
+    select_beta,
     tune_thresholds,
     apply_thresholds,
     phase_blend_server,
     build_server_pair_prior,
 )
+
+
+def test_prior_correct_beta_zero_is_raw_argmax():
+    rng = np.random.default_rng(1)
+    probs = rng.dirichlet([2, 1, 1, 1], size=50)
+    prior = np.array([0.7, 0.1, 0.1, 0.1])
+    out = prior_correct(probs, prior, beta=0.0)
+    # beta=0 divides by prior**0 == 1, so argmax is unchanged from raw probs.
+    assert np.array_equal(out.argmax(1), probs.argmax(1))
+    assert np.allclose(out.sum(1), 1.0, atol=1e-6)
+
+
+def test_prior_correct_beta_default_matches_beta_one():
+    rng = np.random.default_rng(2)
+    probs = rng.dirichlet([1, 1, 1], size=20)
+    prior = np.array([0.6, 0.3, 0.1])
+    assert np.allclose(prior_correct(probs, prior), prior_correct(probs, prior, beta=1.0))
+
+
+def test_select_beta_recovers_known_optimum():
+    from sklearn.metrics import f1_score
+
+    # Construct data where mild correction beats both raw and full correction:
+    # class 0 is the majority and probs are biased toward it, so beta=0 collapses
+    # to majority but a large beta over-corrects toward truly-rare classes.
+    rng = np.random.default_rng(0)
+    n, k = 3000, 4
+    prior_true = np.array([0.7, 0.2, 0.07, 0.03])
+    y = rng.choice(k, size=n, p=prior_true)
+    groups = rng.integers(0, 5, size=n)  # 5 CV groups (like seeds)
+    probs = np.full((n, k), 0.05)
+    probs[np.arange(n), y] += 0.5  # weak signal toward the true class
+    probs += rng.dirichlet(np.full(k, 1.0), size=n) * 0.3
+    probs[:, 0] += 0.25  # extra majority bias the correction must undo
+    probs /= probs.sum(1, keepdims=True)
+
+    beta, cv_f1 = select_beta(probs, y, groups, n_classes=k)
+    assert 0.0 <= beta <= 1.5
+    # The selected beta must not be worse than the legacy beta=1 on a held-out group.
+    va = groups == 0
+    tr = ~va
+    p_tr = np.bincount(y[tr], minlength=k).astype(float); p_tr /= p_tr.sum()
+    def held_f1(b):
+        adj = probs[va] / np.clip(p_tr ** b, 1e-12, None)
+        return f1_score(y[va], adj.argmax(1), labels=list(range(k)),
+                        average="macro", zero_division=0)
+    assert held_f1(beta) + 1e-9 >= held_f1(1.0)
 
 
 def test_prior_correct_amplifies_rare_class():
