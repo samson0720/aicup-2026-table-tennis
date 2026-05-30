@@ -5,6 +5,22 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 ## v5 — final-rank maximization (2026-05-30, in progress)
 
+### v5 Step 1 — serverGetPoint rule-solver from score progression — VERIFIED but TEST-BLOCKED (2026-05-30)
+
+Highest-priority "structural info" check. serverGetPoint = did the server (strike-1 player)
+win the rally. Within a (match,numberGame), the serve-row score (scoreSelf=server pts,
+scoreOther=receiver pts) has score_sum = scoreSelf+scoreOther incrementing by exactly 1 per
+rally (= play order); winner of R = whose absolute score increments R→R+1, so
+serverGetPoint_R = (winner == server_R). DERIVABLE only if rally R+1 is present.
+
+`scripts/server_rule_solver.py`. **TRAIN: coverage 89.6%, accuracy 1.0000 (EXACT).** The rule
+is provably correct. **TEST: coverage ~1% (19/1845)** — test rallies are sampled
+NON-CONSECUTIVELY (only 1.0% have their score_sum+1 successor present; ~5.46 rallies/game
+spread across the game), so the score-delta is uncomputable. The organizers clearly
+anticipated this reconstruction. **No gain beyond the existing 1236 serverGetPoint leak.**
+Verified solver kept as tooling. (test_new.csv exposes ALL columns except serverGetPoint,
+incl. match/numberGame/rally_id/scoreSelf/scoreOther — confirmed.)
+
 ### v5 Idea 3 — adversarial validation — DIAGNOSTIC (explains player-lever saturation) (2026-05-30)
 
 `scripts/adversarial_validation.py`: same next-stroke prefix features for train
