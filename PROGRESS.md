@@ -11,7 +11,7 @@ final/private score is over the FULL set INCLUDING the 1236 leaked-serverGetPoin
 leak levers DO raise the rank. Two orthogonal open cells: point×leaked (Track A, small) and
 action×all (Track B, large/empty). Honest gates unchanged.
 
-### v5 Track A — leak-feature point ensemble — VALIDATED (+0.0067), deploy pending
+### v5 Track A — leak-feature point ensemble — DEPLOYED (+0.0116)
 
 Added `--leak-sgp` / `lgbm_sgp` to the LGBM producer (`scripts/produce_base_oof.py`,
 mirrors the catboost `_sgp` path).
@@ -43,6 +43,21 @@ called `_write_test_parquet` with wrong kwargs → the test parquet was missing 
 "deploy" commit (d8d2428) did NOT actually rebuild leakmax; (2) an interim PROGRESS commit
 recorded eval numbers that were not from a real run. Both corrected: the test parquet is now
 generated, leakmax rebuilt, and the verified numbers (0.1873/0.1972/0.1989/+0.0116) recorded.
+
+### v5 Track B1 — ShuttleNet position symmetry augmentation — PILOT PENDING
+
+Added opt-in `--mirror-position-augment` to `scripts/train_shuttle.py`. Training folds are
+doubled with left/right `positionId` copies (`2↔3`; `0/1` unchanged). Because `pointId` is a
+landing-location label and the dataset does not publish its left/right map, mirrored copies
+contribute to **action loss only**; originals still contribute action+point loss. Validation
+and test inference stay unmodified. This isolates the honest Track-B action claim without
+injecting wrong point labels. Default behavior remains byte-path-compatible with `shuttle`.
+
+Verification before pilot: focused augmentation/sequence/ShuttleNet tests green; 1-epoch
+RTX-3090 smoke writes `shuttle_aug_smoke_{action,point}` OOF; full suite **63 tests green**.
+Next: real gate seed11×folds0-2, d256/l4/h4/ffn768, 50ep patience12, workers6, model
+`shuttle_aug_pilot`; compare standalone action against the real `shuttle_pilot` baseline
+(0.2681 on the same slice). Full 25-fold only if competitive.
 
 ## Private-push v4 (2026-05-30) — parallel multi-bet + public leak expansion
 

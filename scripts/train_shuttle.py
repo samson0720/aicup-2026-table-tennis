@@ -20,7 +20,7 @@ from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader, Subset
 
 from scripts.oof_loader import OOF_DIR, write_oof
-from scripts.seq_dataset import RallyPrefixDataset, collate_batch
+from scripts.seq_dataset import MirrorPositionActionDataset, RallyPrefixDataset, collate_batch
 from scripts.seq_eval import warmup_cosine_lambda
 from scripts.shuttle_model import ShuttleForecaster
 
@@ -101,6 +101,33 @@ def _monitor_score(
     return {"action_f1": action_f1, "point_f1": point_f1, "overall": overall}
 
 
+def _multitask_loss(
+    out: dict[str, torch.Tensor],
+    batch: dict[str, torch.Tensor],
+    device: torch.device,
+    w_action: torch.Tensor,
+    w_point: torch.Tensor,
+) -> torch.Tensor:
+    action_loss = F.cross_entropy(
+        out["action_logits"], batch["y_action"].to(device), weight=w_action
+    )
+    point_loss = F.cross_entropy(
+        out["point_logits"], batch["y_point"].to(device), weight=w_point, reduction="none"
+    )
+    point_weight = batch.get("point_loss_weight")
+    if point_weight is not None:
+        point_weight = point_weight.to(device)
+        point_loss = (point_loss * point_weight).sum() / point_weight.sum().clamp(min=1.0)
+    else:
+        point_loss = point_loss.mean()
+    return action_loss + point_loss
+
+
+def _training_dataset(ds: RallyPrefixDataset, indices: list[int], mirror_position: bool):
+    subset = Subset(ds, indices)
+    return MirrorPositionActionDataset(subset) if mirror_position else subset
+
+
 def run_one_fold(
     args: argparse.Namespace,
     train: pd.DataFrame,
@@ -120,7 +147,7 @@ def run_one_fold(
         valid_idx = valid_idx[: args.max_valid]
 
     train_loader = DataLoader(
-        Subset(ds, train_idx),
+        _training_dataset(ds, train_idx, args.mirror_position_augment),
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=args.num_workers,
@@ -170,10 +197,7 @@ def run_one_fold(
                     batch["floats"].to(device),
                     batch["mask"].to(device),
                 )
-                loss = (
-                    F.cross_entropy(out["action_logits"], batch["y_action"].to(device), weight=w_action)
-                    + F.cross_entropy(out["point_logits"], batch["y_point"].to(device), weight=w_point)
-                )
+                loss = _multitask_loss(out, batch, device, w_action, w_point)
             scaler.scale(loss).backward()
             scaler.unscale_(opt)
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
@@ -290,7 +314,11 @@ def run_predict_test(
     ds = RallyPrefixDataset(train, splits, seed=seed)
     all_idx = list(range(len(ds)))
     train_loader = DataLoader(
-        ds, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=collate_batch
+        _training_dataset(ds, all_idx, args.mirror_position_augment),
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=args.num_workers,
+        collate_fn=collate_batch,
     )
     model = ShuttleForecaster(
         d_model=args.d_model,
@@ -325,10 +353,7 @@ def run_predict_test(
                     batch["floats"].to(device),
                     batch["mask"].to(device),
                 )
-                loss = (
-                    F.cross_entropy(out["action_logits"], batch["y_action"].to(device), weight=w_action)
-                    + F.cross_entropy(out["point_logits"], batch["y_point"].to(device), weight=w_point)
-                )
+                loss = _multitask_loss(out, batch, device, w_action, w_point)
             scaler.scale(loss).backward()
             scaler.unscale_(opt)
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
@@ -383,6 +408,7 @@ def run(args: argparse.Namespace) -> None:
                 "weight_decay": args.weight_decay,
                 "warmup_frac": args.warmup_frac,
                 "clip": args.clip,
+                "mirror_position_augment": args.mirror_position_augment,
                 "per_fold_best": logs,
             },
             indent=2,
@@ -410,6 +436,8 @@ def main() -> None:
     parser.add_argument("--max-train", type=int)
     parser.add_argument("--max-valid", type=int)
     parser.add_argument("--num-workers", type=int, default=0)
+    parser.add_argument("--mirror-position-augment", action="store_true",
+                        help="append positionId 2<->3 mirrored copies for action-only supervision")
     parser.add_argument("--cpu", action="store_true")
     parser.add_argument("--predict-test", action="store_true",
                         help="train one full-train model and write single-cut test predictions")

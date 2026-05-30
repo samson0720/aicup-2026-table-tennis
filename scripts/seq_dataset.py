@@ -21,6 +21,7 @@ CATEGORICAL_COLS = (
 )
 SCORE_FLOAT_COLS = ("scoreSelf", "scoreOther")
 MAX_LEN = 24
+POSITION_COL_IDX = CATEGORICAL_COLS.index("positionId")
 
 
 class RallyPrefixDataset(Dataset):
@@ -79,9 +80,49 @@ class RallyPrefixDataset(Dataset):
         }
 
 
+class MirrorPositionActionDataset(Dataset):
+    """Append left/right-mirrored copies for action-only supervision.
+
+    positionId values 2 and 3 are the left/right variants. pointId is a
+    landing-location label, but the dataset does not publish its mirror map, so
+    mirrored copies intentionally contribute only to the action loss.
+    """
+
+    def __init__(self, base: Dataset):
+        self.base = base
+
+    def __len__(self) -> int:
+        return 2 * len(self.base)
+
+    def __getitem__(self, idx: int) -> dict:
+        is_mirrored = idx >= len(self.base)
+        item = dict(self.base[idx % len(self.base)])
+        item["point_loss_weight"] = torch.tensor(
+            0.0 if is_mirrored else 1.0, dtype=torch.float32
+        )
+        if not is_mirrored:
+            return item
+
+        tokens = item["tokens"].clone()
+        positions = tokens[:, POSITION_COL_IDX]
+        tokens[:, POSITION_COL_IDX] = torch.where(
+            positions == 2,
+            torch.tensor(3, dtype=positions.dtype),
+            torch.where(
+                positions == 3,
+                torch.tensor(2, dtype=positions.dtype),
+                positions,
+            ),
+        )
+        item["tokens"] = tokens
+        return item
+
+
 def collate_batch(items: list[dict]) -> dict[str, torch.Tensor]:
     keys = ("tokens", "floats", "mask", "y_action", "y_point", "y_server")
     out = {key: torch.stack([item[key] for item in items]) for key in keys}
+    if "point_loss_weight" in items[0]:
+        out["point_loss_weight"] = torch.stack([item["point_loss_weight"] for item in items])
     out["rally_uid"] = torch.tensor([int(item["rally_uid"]) for item in items], dtype=torch.long)
     out["fold"] = torch.tensor([int(item["fold"]) for item in items], dtype=torch.long)
     out["target_strike"] = torch.tensor([int(item["target_strike"]) for item in items], dtype=torch.long)
