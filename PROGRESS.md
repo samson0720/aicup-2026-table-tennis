@@ -57,11 +57,14 @@ Three real public uploads decompose the leakmax public score cleanly:
   branch scored 0.4247437 partly because it has NO shuttle.
 
 → Built **`submission_FINAL_leakmax_noshuttle.csv`** = 7-base (drop shuttle) + cat + markovp +
-**beta** + ensemble override + leak smoothing. Predicted to beat both our 0.4207 and the
-teammate's 0.4247 (same beta + leak, but WE also have cat/markovp and drop the harmful shuttle).
-Honest no-shuttle overall 0.32690 (vs 8-base+beta 0.329691; shuttle kept in the honest bet).
-New non-destructive hooks: `AICUP_DROP_BASE`, `AICUP_OUT_SUFFIX` (build_final_perrow),
-`--smooth-in` (build_leakmax). Awaiting upload to confirm.
+**beta** + ensemble override + leak smoothing. **CONFIRMED public 0.4309548** (uploaded
+2026-05-31) — **the team's best, beats the teammate's 0.4247437 (+0.0062) and our prior
+0.4207827 (+0.0102).** Prediction ~0.43 hit exactly. This is THE recommended final submission.
+Decomposition validated: drop-shuttle (+~0.014 public) + ensemble override (+0.0127) + beta +
+cat/markovp (which the teammate lacks). Honest no-shuttle overall 0.32690 (vs 8-base+beta
+0.329691; shuttle kept in the HONEST bet, dropped only for the public leakmax). New
+non-destructive hooks: `AICUP_DROP_BASE`, `AICUP_OUT_SUFFIX` (build_final_perrow),
+`--smooth-in` (build_leakmax).
 
 ### v5 — canonical leakmax base flipped to cat_sgp-alone (2026-05-30)
 
