@@ -38,7 +38,7 @@ def _stack(rs, ss, fs, cs, ps):
     )
 
 
-def run_lgbm(num_leaves: int, model_name: str) -> None:
+def run_lgbm(num_leaves: int, model_name: str, leak_sgp: bool = False) -> None:
     splits = pd.read_parquet("artifacts/cv_splits.parquet")
     train = pd.read_csv(next(Path.cwd().glob("AI CUP*/train.csv")))
 
@@ -53,12 +53,19 @@ def run_lgbm(num_leaves: int, model_name: str) -> None:
         feats = [c for c in feature_columns(df_train) if c in df_valid.columns]
         x_train, x_valid = df_train[feats], df_valid[feats]
 
+        # leak-as-feature (Track A): feed known rally outcome serverGetPoint to the
+        # action/point models only (server stays leak-free). Mirrors produce_catboost_oof.
+        x_train_ap, x_valid_ap = x_train, x_valid
+        if leak_sgp:
+            x_train_ap = x_train.copy(); x_train_ap["_sgp"] = df_train["y_serverGetPoint"].to_numpy().astype(float)
+            x_valid_ap = x_valid.copy(); x_valid_ap["_sgp"] = df_valid["y_serverGetPoint"].to_numpy().astype(float)
+
         pa = fit_multiclass(
-            x_train, df_train["y_actionId"], x_valid, df_valid["y_actionId"],
+            x_train_ap, df_train["y_actionId"], x_valid_ap, df_valid["y_actionId"],
             TARGET_ACTION_CLASSES, "sqrt", 2026 + fold, 180, num_leaves,
         )
         pp = fit_multiclass(
-            x_train, df_train["y_pointId"], x_valid, df_valid["y_pointId"],
+            x_train_ap, df_train["y_pointId"], x_valid_ap, df_valid["y_pointId"],
             TARGET_POINT_CLASSES, "sqrt", 3026 + fold, 180, num_leaves,
         )
         ps = fit_binary(
@@ -132,12 +139,14 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--model", required=True,
-        choices=["lgbm15", "lgbm31", "markov", "phase_lgbm"],
+        choices=["lgbm15", "lgbm31", "markov", "phase_lgbm", "lgbm_sgp"],
     )
     args = parser.parse_args()
 
     if args.model == "lgbm15":
         run_lgbm(15, "lgbm15")
+    elif args.model == "lgbm_sgp":
+        run_lgbm(15, "lgbm_sgp", leak_sgp=True)
     elif args.model == "lgbm31":
         run_lgbm(31, "lgbm31")
     elif args.model == "markov":
