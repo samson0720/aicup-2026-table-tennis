@@ -28,6 +28,8 @@ def main() -> None:
     # "drop" was the shuttle 8-base, NOT Track A (offline gate also said ensemble +0.0116).
     ap.add_argument("--point-source", choices=["ensemble", "cat"], default="ensemble")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--smooth-in", default="artifacts/submission_FINAL_smooth_perrow.csv",
+                    help="base smooth submission to override point on (e.g. a no-shuttle variant)")
     args = ap.parse_args()
     out = args.out or (
         "artifacts/submission_FINAL_leakmax.csv" if args.point_source == "ensemble"
@@ -64,7 +66,7 @@ def main() -> None:
     pt_cls = apply_thresholds(prior_correct(Pt, prior), thr)
     sgp_point = dict(zip(cat_t["rally_uid"].astype(int), pt_cls.astype(int)))
 
-    sm = pd.read_csv("artifacts/submission_FINAL_smooth_perrow.csv")
+    sm = pd.read_csv(args.smooth_in)
     mask = sm["rally_uid"].isin(overlap)
     sm.loc[mask, "pointId"] = sm.loc[mask, "rally_uid"].map(sgp_point).astype(int)
 

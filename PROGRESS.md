@@ -40,6 +40,29 @@ WHY it works: full prior-correction (beta=1) over-debiases — for 19-class acti
 over-boosts rare classes; partial correction (action 0.6) keeps macro-F1's rare-class help
 without the over-shoot, and the threshold tuning then fine-tunes from a better starting point.
 
+### v5 — public-score decomposition + no-shuttle leakmax candidate (2026-05-31)
+
+Three real public uploads decompose the leakmax public score cleanly:
+
+| base | override | public |
+|---|---|---|
+| 7-base (no shuttle) | cat-alone | 0.4207827 |
+| 8-base (+shuttle) | ensemble | 0.4191248 |
+| 8-base (+shuttle) | cat-alone | 0.4064464 |
+
+- **override (same 8-base): ensemble +0.0127 > cat-alone** (matches offline gate +0.0116) →
+  the catonly default was a MISATTRIBUTION; reverted leakmax default cat→ensemble.
+- **base (same cat override): 7-base 0.4207 vs 8-base 0.4064 → shuttle HURTS public −0.0143**
+  (even though shuttle is +0.0014 on the honest CV — different metric/rows). Teammate's beta
+  branch scored 0.4247437 partly because it has NO shuttle.
+
+→ Built **`submission_FINAL_leakmax_noshuttle.csv`** = 7-base (drop shuttle) + cat + markovp +
+**beta** + ensemble override + leak smoothing. Predicted to beat both our 0.4207 and the
+teammate's 0.4247 (same beta + leak, but WE also have cat/markovp and drop the harmful shuttle).
+Honest no-shuttle overall 0.32690 (vs 8-base+beta 0.329691; shuttle kept in the honest bet).
+New non-destructive hooks: `AICUP_DROP_BASE`, `AICUP_OUT_SUFFIX` (build_final_perrow),
+`--smooth-in` (build_leakmax). Awaiting upload to confirm.
+
 ### v5 — canonical leakmax base flipped to cat_sgp-alone (2026-05-30)
 
 The ensemble Track A leakmax (mean(cat_sgp,lgbm_sgp) point override) scored public 0.4191248,

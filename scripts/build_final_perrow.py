@@ -47,6 +47,14 @@ if _swap and ":" in _swap:
     _o, _n = _swap.split(":", 1)
     for _t in BASES:
         BASES[_t] = [_n if b == _o else b for b in BASES[_t]]
+# AICUP_DROP_BASE="b1,b2" removes bases across all targets (e.g. shuttle for a public
+# leakmax variant — shuttle helps honest +0.0014 but HURTS public -0.0143). AICUP_OUT_SUFFIX
+# suffixes the written submission/score files so production files are not clobbered.
+_drop = set(b for b in os.environ.get("AICUP_DROP_BASE", "").strip().split(",") if b)
+if _drop:
+    for _t in BASES:
+        BASES[_t] = [b for b in BASES[_t] if b not in _drop]
+OUT_SUFFIX = os.environ.get("AICUP_OUT_SUFFIX", "")
 KEYS = ["rally_uid", "seed", "fold", "cut_strikeNumber"]
 SPEC = [("multiclass", "action", 19, "actionId"),
         ("multiclass", "point", 10, "pointId"),
@@ -219,8 +227,8 @@ def main() -> None:
     assert safe["pointId"].between(0, 9).all()
     assert safe["serverGetPoint"].between(0, 1).all()
 
-    safe.to_csv("artifacts/submission_FINAL_safe_perrow.csv", index=False)
-    print(f"wrote artifacts/submission_FINAL_safe_perrow.csv: {safe.shape}")
+    safe.to_csv(f"artifacts/submission_FINAL_safe_perrow{OUT_SUFFIX}.csv", index=False)
+    print(f"wrote artifacts/submission_FINAL_safe_perrow{OUT_SUFFIX}.csv: {safe.shape}")
 
     # public-backup smooth variant: overwrite serverGetPoint on old-test overlap rallies
     old_path = _data_dir() / "Reference_Only_Old_Test_Data" / "test.csv"
@@ -236,8 +244,8 @@ def main() -> None:
         smooth.loc[mask, "serverGetPoint"] = smooth.loc[mask, "rally_uid"].map(
             lambda uid: 1.0 if int(old_server[int(uid)]) == 1 else 0.0)
         print(f"smoothed {int(mask.sum())} overlap rallies (hard 1/0)")
-    smooth.to_csv("artifacts/submission_FINAL_smooth_perrow.csv", index=False)
-    print(f"wrote artifacts/submission_FINAL_smooth_perrow.csv: {smooth.shape}")
+    smooth.to_csv(f"artifacts/submission_FINAL_smooth_perrow{OUT_SUFFIX}.csv", index=False)
+    print(f"wrote artifacts/submission_FINAL_smooth_perrow{OUT_SUFFIX}.csv: {smooth.shape}")
 
 
 if __name__ == "__main__":
