@@ -24,11 +24,31 @@ separators are ENTIRELY the player-ID features (`last_gamePlayerId` 5190, `…Ot
 player-conditional lever — markovp shipped only +0.00188, markovz REJECTED, markov2
 overfit — because player signal only transfers for ~56% of test; the other 44% back off to
 player-agnostic. **markovp's OOF +0.00188 is likely OPTIMISTIC for test** (OOF players recur
-across folds; test players are 44% new). No SCORING action taken: blindly pruning the top
-adversarial features (player IDs) is the textbook move but a TRAP here — markovp ships on
-them, they help the 56% seen players, and feature-pruning was already tested neutral
-(−0.0003). Kept `adversarial_validation.py` as reusable diagnostic tooling. See
-[[aicup-train-test-shift]].
+across folds; test players are 44% new). Kept `adversarial_validation.py` as reusable
+diagnostic tooling. See [[aicup-train-test-shift]].
+
+**Per-base seen/unseen OOF breakdown (the smoking gun):** partitioning OOF by whether the
+target hitter was in fold-train (16947/74975 = 22.6% unseen):
+
+| base | seen action | unseen action | seen point | unseen point |
+|---|---:|---:|---:|---:|
+| cat (player-heavy) | 0.2794 | 0.2271 | 0.1750 | 0.1686 |
+| markov (agnostic) | 0.1600 | 0.1553 | 0.0920 | 0.0879 |
+| markovp (player) | 0.2020 | **0.1109** | 0.1095 | **0.0574** |
+
+markovp COLLAPSES on unseen (worse than agnostic markov there); cat degrades but stays strong.
+
+**Tried the obvious fix `markovp_robust` (seen→markovp, unseen→markov; leakage-free, we know
+the hitter id at inference) → REJECTED (−0.00041).** Swap A/B (`AICUP_SWAP_BASE`):
+action +0.00041 but point −0.00143, overall 0.3270810→0.3266703. Root cause: `markov` is
+ALREADY a base, so routing unseen rows to markov's probs DUPLICATES it in the markovp slot
+→ stacker collinearity kills point. Deeper lesson: **the 8-base ensemble is ALREADY robust to
+the player shift** — cat doesn't collapse on unseen and markov is already in the stack, so the
+LR meta already routes around markovp's unseen weakness; "fixing" markovp adds redundancy, not
+signal. Reassuring for private-LB robustness (no fragility to the 44% unseen players), but no
+score to gain. action-only variant not run (action +0.00041 < action floor 0.00525 → sub-floor
+by construction). `produce_markovp_robust.py` + `AICUP_SWAP_BASE` hook kept (NOT in BASES);
+no blind player-ID pruning (markovp ships on them; feature-pruning already neutral −0.0003).
 
 Also assessed and NOT pursued this round: (1) remaining-strokes regression as a feature —
 low EV, redundant with strikeNumber/phase/prefix_len the trees already split on; (2) custom

@@ -40,6 +40,13 @@ for _t in ("action", "point", "server"):
     _extra = os.environ.get(f"AICUP_EXTRA_{_t.upper()}_BASE", "").strip()
     if _extra:
         BASES[_t] = BASES[_t] + [b for b in _extra.split(",") if b and b not in BASES[_t]]
+# AICUP_SWAP_BASE="old:new" replaces base `old` with `new` across all targets (A/B a
+# drop-in base variant, e.g. markovp:markovp_robust). Non-destructive with SCORE_ONLY.
+_swap = os.environ.get("AICUP_SWAP_BASE", "").strip()
+if _swap and ":" in _swap:
+    _o, _n = _swap.split(":", 1)
+    for _t in BASES:
+        BASES[_t] = [_n if b == _o else b for b in BASES[_t]]
 KEYS = ["rally_uid", "seed", "fold", "cut_strikeNumber"]
 SPEC = [("multiclass", "action", 19, "actionId"),
         ("multiclass", "point", 10, "pointId"),
