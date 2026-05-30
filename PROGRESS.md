@@ -5,6 +5,36 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 ## v5 — final-rank maximization (2026-05-30, in progress)
 
+### v5 Idea 3 — adversarial validation — DIAGNOSTIC (explains player-lever saturation) (2026-05-30)
+
+`scripts/adversarial_validation.py`: same next-stroke prefix features for train
+(one-sample-per-rally, seed-11 cut) vs test (real cut), label is_test, 5-fold LGBM AUC.
+**Adversarial AUC = 0.9894** — train/test are almost perfectly separable. The top-15
+separators are ENTIRELY the player-ID features (`last_gamePlayerId` 5190, `…OtherId` 4961,
+`first_*` 4574/4080; everything else ≤598). Verified directly:
+
+- **matches FULLY disjoint** (0 of 216 train ∩ 79 test) — the intended structural split;
+  our CV is **match-grouped**, so it already simulates this → consistent with the stable
+  local↔public offset; **structural shake-up risk is LOW**.
+- **players 56% overlap** (71 test players, 40 seen in train, **31 = 44% unseen**).
+- So the AUC 0.99 is driven by player IDENTITY (which people play), NOT a deep predictive-
+  feature shift (non-ID features are tiny importance).
+
+**Why this matters (the real deliverable):** it explains the saturation of every
+player-conditional lever — markovp shipped only +0.00188, markovz REJECTED, markov2
+overfit — because player signal only transfers for ~56% of test; the other 44% back off to
+player-agnostic. **markovp's OOF +0.00188 is likely OPTIMISTIC for test** (OOF players recur
+across folds; test players are 44% new). No SCORING action taken: blindly pruning the top
+adversarial features (player IDs) is the textbook move but a TRAP here — markovp ships on
+them, they help the 56% seen players, and feature-pruning was already tested neutral
+(−0.0003). Kept `adversarial_validation.py` as reusable diagnostic tooling. See
+[[aicup-train-test-shift]].
+
+Also assessed and NOT pursued this round: (1) remaining-strokes regression as a feature —
+low EV, redundant with strikeNumber/phase/prefix_len the trees already split on; (2) custom
+soft-F1 / differentiable-macro-F1 GBDT objective — REJECT by precedent (focal-loss lgbm_focal
+already −0.00059 + unstable; prior+threshold already captures the macro-F1 signal).
+
 ### v5 Idea 2 — player × landing-ZONE transition (`markovz`) — REJECTED (2026-05-30)
 
 User idea: exploit the verified pointId geometry ([[aicup-pointid-geometry]]) for a

@@ -27,6 +27,9 @@ none in `build_final_perrow.py:BASES`.
 | pseudo-labeling | self-train on test | NOT done — amplifies majority bias vs macro-F1; covariate shift is minimal |
 | serve-class rule zeroing | force P(15-18)=0 at strike≥2 | NO-OP (model never predicts them; fixed-19-label macro-F1) |
 | multi-seed blend | avg model-init seeds at test | NOT done — can't gate on local CV (OOF seed = cut seed); expected sub-floor on a stacked ensemble |
+| remaining-strokes regressor | "lethality" scalar feature | NOT done — low EV, redundant with strikeNumber/phase/prefix_len trees already split on |
+| soft-F1 / diff-macro-F1 objective | custom GBDT loss | REJECT by precedent — focal (lgbm_focal) already −0.00059 + unstable; prior+threshold already captures macro-F1 |
+| **adversarial validation** | train/test separability | DIAGNOSTIC (AUC 0.99): matches fully disjoint (CV handles it, low shake-up), **44% test players unseen** → explains player-lever saturation; do NOT prune player IDs ([[aicup-train-test-shift]]) |
 
 **Only thing that moved real score = the serverGetPoint LEAK** (Track A, deployed in leakmax).
 
