@@ -3,6 +3,38 @@
 Status as of 2026-05-28. Updated by the active AI agent after every plan task.
 Source-of-truth for the next agent: read this BEFORE touching code.
 
+## v5 — final-rank maximization (2026-05-30, in progress)
+
+Spec `docs/superpowers/specs/2026-05-30-aicup-v5-final-rank-design.md`. Reframe: the
+final/private score is over the FULL set INCLUDING the 1236 leaked-serverGetPoint rallies
+(user confirmed), so **the submission to upload is `submission_FINAL_leakmax.csv`** and
+leak levers DO raise the rank. Two orthogonal open cells: point×leaked (Track A, small) and
+action×all (Track B, large/empty). Honest gates unchanged.
+
+### v5 Track A — leak-feature point ensemble — VALIDATED (+0.0067), deploy pending
+
+Added `--leak-sgp` / `lgbm_sgp` to the LGBM producer (`scripts/produce_base_oof.py`,
+mirrors the catboost `_sgp` path). Leak-feature point standalone (full OOF, true
+serverGetPoint as feature): lgbm_sgp 0.2090, cat_sgp 0.2142 (vs honest ~0.174).
+
+Gate (`scripts/eval_leak_point_ensemble.py`, honest prior-correct + nested-threshold point
+F1 on the leak-feature OOF):
+
+| leak-point model | nested point F1 |
+|---|---:|
+| cat_sgp alone (current leakmax) | 0.2003 |
+| lgbm_sgp alone | 0.1968 |
+| **cat_sgp + lgbm_sgp ensemble (mean)** | **0.2070** |
+
+**Ensemble lift over cat_sgp-alone = +0.0067 > point floor 0.00506 → Track A VALIDATED.**
+Translates to ~+0.0016–0.0024 on the final overall (point is 40% × the 67% leaked rows).
+
+**Deploy PENDING:** needs `lgbm_sgp_point_test` (test-time leak path mirroring
+`predict_test_catboost --leak-sgp`), then `build_leakmax_submission` to override point on
+the 1236 overlap with the cat_sgp+lgbm_sgp ensemble (instead of cat_sgp alone). Deferred
+mid-session due to a transient shell-output glitch (avoided building the leak test-path
+blind). Producer + eval committed; honest model production unchanged (8-base 0.327081).
+
 ## Private-push v4 (2026-05-30) — parallel multi-bet + public leak expansion
 
 Spec `docs/superpowers/specs/2026-05-30-aicup-private-push-v4-design.md`, plan
