@@ -44,7 +44,7 @@ called `_write_test_parquet` with wrong kwargs → the test parquet was missing 
 recorded eval numbers that were not from a real run. Both corrected: the test parquet is now
 generated, leakmax rebuilt, and the verified numbers (0.1873/0.1972/0.1989/+0.0116) recorded.
 
-### v5 Track B1 — ShuttleNet position symmetry augmentation — PILOT PENDING
+### v5 Track B1 — ShuttleNet position symmetry augmentation — REJECTED AT PILOT
 
 Added opt-in `--mirror-position-augment` to `scripts/train_shuttle.py`. Training folds are
 doubled with left/right `positionId` copies (`2↔3`; `0/1` unchanged). Because `pointId` is a
@@ -55,9 +55,20 @@ injecting wrong point labels. Default behavior remains byte-path-compatible with
 
 Verification before pilot: focused augmentation/sequence/ShuttleNet tests green; 1-epoch
 RTX-3090 smoke writes `shuttle_aug_smoke_{action,point}` OOF; full suite **63 tests green**.
-Next: real gate seed11×folds0-2, d256/l4/h4/ffn768, 50ep patience12, workers6, model
-`shuttle_aug_pilot`; compare standalone action against the real `shuttle_pilot` baseline
-(0.2681 on the same slice). Full 25-fold only if competitive.
+Real gate ran on the RTX 3090: seed11×folds0-2, d256/l4/h4/ffn768, 50ep patience12,
+workers6, model `shuttle_aug_pilot`, compared by `scripts/score_shuttle_pilot.py` on the
+same 8960-row OOF slice:
+
+| model | action | point |
+|---|---:|---:|
+| shuttle_pilot baseline | 0.268138 | 0.182778 |
+| shuttle_aug_pilot | 0.262452 | 0.182724 |
+| **delta** | **−0.005686** | **−0.000054** |
+
+**VERDICT: REJECT.** Mirroring `positionId 2↔3` as action-only augmentation hurts action
+by more than the action noise floor (0.00525). Do NOT burn a full 25-fold run. Scripts,
+pilot OOF, `artifacts/shuttle_aug_pilot_run_log.json`, and the verified gate JSON are kept
+for reproducibility. Next: Track B2 fold-safe next-stroke transition pretraining pilot.
 
 ## Private-push v4 (2026-05-30) — parallel multi-bet + public leak expansion
 
