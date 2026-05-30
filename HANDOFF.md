@@ -1,6 +1,6 @@
 # AI CUP Table Tennis Handoff
 
-> **⚡ NEXT SESSION START HERE (2026-05-30) — v5 Track B (action improvement).**
+> **⚡ NEXT SESSION START HERE (2026-05-30) — v5 Track B complete.**
 > Everything below the divider is older history; read PROGRESS.md first.
 
 ## Next-session handoff: v5 Track B
@@ -17,21 +17,18 @@ Read first: `PROGRESS.md` (top "v5"/"v4" sections),
 - Honest 8-base ensemble (incl. `shuttle`) = honest overall **0.327081** = `submission_FINAL_safe_perrow.csv`.
 - **Track A is DONE** (leak-point ensemble cat_sgp+lgbm_sgp, nested point-F1 lift **+0.0116**,
   deployed into leakmax). Don't redo Track A.
+- **Track B is DONE.** B1 position mirror rejected at pilot (action **−0.00569**).
+  B2 fold-safe transition pretraining made ShuttleNet standalone much stronger
+  (action **+0.01419**, point **+0.00655**) but production swap/add lifts were only
+  **+0.000455 / +0.000231**, below the **0.00168** floor. Kept scripts/artifacts;
+  reverted BASES to shipped `shuttle`; rebuilt safe/smooth/leakmax. Don't redo Track B.
 
-**Your task — Track B: make `actionId` stronger.** action is 40% of the score, has NO leak,
-and is the weakest cell (shuttle standalone action 0.2589 / 0.299 in the ensemble) → the
-largest, cleanest headroom; future methods keep compounding into it.
-- **B1 (cheap, first):** symmetry data augmentation (swap acting-player/opponent perspective,
-  mirror `positionId` left↔right) when training the ShuttleNet.
-- **B2 (multi-hour GPU bet):** self-supervised pretraining of the ShuttleNet encoder
-  (masked-stroke / next-stroke objective over all 84k stroke transitions, not just the 75k
-  cut-points), then fine-tune on the prefix→next-stroke task.
-- Pilot-gate each first (seed 11 × folds 0–2 vs shuttle action 0.2589); only competitive
-  pilots go to full 25-fold.
-- Ship gate: honest per-row nested-CV; add/swap the base in `build_final_perrow.py:BASES`,
-  overall lift vs **0.327081** must exceed **0.00168** (action-specific floor 0.00525).
-  Sub-floor → revert, keep scripts, record in PROGRESS. Honest EV: uncertain, don't expect a
-  big jump (information ceiling).
+**Track-B result detail:** `scripts/train_shuttle.py` now has opt-in
+`--mirror-position-augment` and `--pretrain-transition-epochs`; default behavior is
+unchanged. `scripts/score_shuttle_pilot.py` reproduces pilot/full standalone gates.
+There are 69,712 usable next-stroke transitions from 84,707 strokes (rally-first strokes
+have no preceding prefix). See `PROGRESS.md` top v5 sections and
+`artifacts/shuttle_pretrain_integration_gate.json`.
 
 **Process rules (lessons already paid for):**
 - Everything `conda run -n aicup-tt`; GPU `env CUDA_VISIBLE_DEVICES=0` (the 3090 shows as

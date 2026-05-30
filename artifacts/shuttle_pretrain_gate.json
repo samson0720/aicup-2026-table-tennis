@@ -1,0 +1,18 @@
+{
+  "baseline_model": "shuttle",
+  "candidate_model": "shuttle_pretrain",
+  "baseline": {
+    "rows": 74975,
+    "action_macro_f1": 0.2588623331107893,
+    "point_macro_f1": 0.18492787170849345
+  },
+  "candidate": {
+    "rows": 74975,
+    "action_macro_f1": 0.27304930366796343,
+    "point_macro_f1": 0.1914748943220477
+  },
+  "delta": {
+    "action_macro_f1": 0.014186970557174106,
+    "point_macro_f1": 0.006547022613554249
+  }
+}

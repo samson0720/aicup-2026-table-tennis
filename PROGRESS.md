@@ -70,7 +70,7 @@ by more than the action noise floor (0.00525). Do NOT burn a full 25-fold run. S
 pilot OOF, `artifacts/shuttle_aug_pilot_run_log.json`, and the verified gate JSON are kept
 for reproducibility. Next: Track B2 fold-safe next-stroke transition pretraining pilot.
 
-### v5 Track B2 — ShuttleNet transition pretraining — PILOT GREEN, FULL OOF PENDING
+### v5 Track B2 — ShuttleNet transition pretraining — REJECTED AT PRODUCTION GATE
 
 Added opt-in `--pretrain-transition-epochs` / `--pretrain-lr` to `train_shuttle.py` and
 `RallyTransitionDataset` in `seq_dataset.py`. Before the normal one-cut-per-rally
@@ -94,10 +94,34 @@ the same 8960-row OOF slice:
 | **delta** | **+0.015713** | **−0.000307** |
 
 **VERDICT: PILOT GREEN.** The action lift is ~3× the action noise floor (0.00525), while
-point is effectively flat. Proceed to full 25-fold OOF + test refit as
-`shuttle_pretrain`, then swap it against `shuttle` in the real `build_final_perrow`
-production A/B. Ship only if overall lift vs current 8-base **0.327081** exceeds 0.00168
-and the full action claim remains above its 0.00525 floor.
+point is effectively flat. Proceeded to full 25-fold OOF + test refit as
+`shuttle_pretrain`.
+
+Full standalone OOF confirms a real representation improvement:
+
+| model | action | point |
+|---|---:|---:|
+| shipped shuttle | 0.258862 | 0.184928 |
+| shuttle_pretrain | 0.273049 | 0.191475 |
+| **delta** | **+0.014187** | **+0.006547** |
+
+But the real honest per-row production A/B shows that this stronger neural signal is
+mostly redundant with the shipped 8-base stack:
+
+| production config | action | point | server | overall | lift vs shipped |
+|---|---:|---:|---:|---:|---:|
+| shipped 8-base (`shuttle`) | 0.298515 | 0.190855 | 0.656665 | **0.327081** | — |
+| 8-base swap (`shuttle_pretrain`) | 0.298717 | 0.191791 | 0.656665 | 0.327536 | **+0.000455** |
+| 9-base add (`shuttle` + `shuttle_pretrain`) | 0.298931 | 0.191016 | 0.656665 | 0.327312 | **+0.000231** |
+
+**VERDICT: REJECT production integration.** Both swap and additive lifts are below the
+strict overall floor 0.00168; ensemble action lift is also below the action floor 0.00525.
+`build_final_perrow.py:BASES` reverted to shipped `shuttle`; safe/smooth rebuilt and
+baseline reproduced exactly (**0.3270809552**); `submission_FINAL_leakmax.csv` rebuilt
+with Track-A cat_sgp+lgbm_sgp point override on 1236 rows. Keep the B2 scaffold, full
+OOF/test parquets, `shuttle_pretrain_run_log.json`, standalone gate JSON, and integration
+gate JSON for future architecture work. This is a useful result: transition pretraining
+raises the neural base substantially, but does not clear the final ensemble ruler.
 
 ## Private-push v4 (2026-05-30) — parallel multi-bet + public leak expansion
 

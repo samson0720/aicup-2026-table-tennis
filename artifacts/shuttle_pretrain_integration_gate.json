@@ -1,0 +1,33 @@
+{
+  "baseline_shuttle_8_base": {
+    "action_macro_f1": 0.2985147454618469,
+    "point_macro_f1": 0.19085506643019928,
+    "server_auc": 0.6566651521428044,
+    "overall": 0.3270809551853794
+  },
+  "swap_shuttle_for_shuttle_pretrain_8_base": {
+    "action_macro_f1": 0.29871696568278866,
+    "point_macro_f1": 0.19179095932482984,
+    "server_auc": 0.6566651521428044,
+    "overall": 0.32753620043160836,
+    "delta_vs_baseline": {
+      "action_macro_f1": 0.00020222022094176162,
+      "point_macro_f1": 0.0009358928946305691,
+      "overall": 0.0004552452462289516
+    }
+  },
+  "add_shuttle_pretrain_9_base": {
+    "action_macro_f1": 0.2989312519353057,
+    "point_macro_f1": 0.19101639874915494,
+    "server_auc": 0.6566651521428044,
+    "overall": 0.3273120907023451,
+    "delta_vs_baseline": {
+      "action_macro_f1": 0.00041650647345881175,
+      "point_macro_f1": 0.00016133231895565703,
+      "overall": 0.00023113551696568524
+    }
+  },
+  "overall_noise_floor": 0.00168,
+  "action_noise_floor": 0.00525,
+  "verdict": "REJECT: swap and additive production A/B lifts are both below the strict gate"
+}
