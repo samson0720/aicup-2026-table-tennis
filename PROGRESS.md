@@ -14,33 +14,51 @@ from a categorical zone ID, so this is a genuinely new feature TYPE (same ration
 shipped markovp). Fixed a leakage bug in the user's formulation: the original used the
 TARGET landing `point_t` (unknown at inference) — the deployed features use OBSERVED prefix
 landings only. Strokes alternate, so the upcoming hitter receives the opponent's strokes;
-`prefix[-1]` and `prefix[-3]` land on the SAME side → `disp_my_*` = that player's run between
-their two most recent receives. pointId geometry is unpublished, so we emit distances under
-TWO layouts (3×3 zones 0–8 + centre for 9; 2×5) and let the tree pick — a wrong layout is
-just noise the tree ignores.
+`prefix[-1]` and `prefix[-3]` land on the SAME (receiver) frame → `disp_my_*` = that player's
+run between their two most recent receives; `disp_opp_*` (`prefix[-2]`/`[-4]`) = opponent's run.
+
+**VERIFIED pointId geometry (round 2, NCU CSIE dictionary + empirical check).** The user
+(AICUP data owner's dept) supplied the real map and the data confirms it: pointId **1–9 = a
+3×3 in-play grid defined RELATIVE TO THE RECEIVER's hand** — lateral x: forehand{1,4,7}=+1 /
+middle{2,5,8}=0 / backhand{3,6,9}=−1; depth y: short{1,2,3}=1 / half-long{4,5,6}=2 /
+long{7,8,9}=3. **pointId 0 = the rally-ENDING stroke** (off-table/winner/error): 98.2% of
+zone-0 strokes are the rally's last stroke and 100% of last strokes are zone 0; ~never
+mid-rally (0.39% of non-last). So 0 is non-spatial → distance sentinel. Prefixes are almost
+all 1–9. `_coord()` now uses this real map (zone 0/out → None → −1 sentinel).
+
+Round-1 used a WRONG guessed map (`(z//3, z%3)` over 0–8 with 9→centre): it placed pointId 9
+(backhand-long, the MOST common landing, 26%) at the CENTRE instead of a far corner, and
+shifted the depth rows by one — corrupting nearly every distance. Round-2 corrected geometry.
 
 Implementation is opt-in and byte-safe: `add_prefix_features(..., with_displacement=False)`
-+ `displacement_features()` in `train_lgbm_baseline.py`, threaded through
++ `displacement_features()`/`_coord()` in `train_lgbm_baseline.py`, threaded through
 `build_one_sample_per_rally(..., with_displacement=)` and a `--with-displacement` flag on
-`produce_catboost_oof.py`. Default OFF → shipped bases unchanged. 4 unit tests +
-`scripts/score_disp_pilot.py`; full suite 68 green.
+`produce_catboost_oof.py`. Default OFF → shipped bases unchanged. 4 unit tests (incl. the
+user's worked example: backhand-long→forehand-short Manhattan = 4) + `scripts/score_disp_pilot.py`;
+full suite 68 green.
 
 Pilot gate (`cat_disp` vs shipped `cat`, seed11×folds0-2, 8960 rows, standalone argmax
 macro-F1; `artifacts/cat_disp_pilot_gate.json`):
 
-| target | cat (baseline) | cat_disp | delta | floor |
+| target | cat | round-1 (wrong geom) | **round-2 (real geom)** | floor |
 |---|---:|---:|---:|---:|
-| action | 0.27338 | 0.26982 | **−0.00356** | 0.00525 |
-| point | 0.16984 | 0.17066 | **+0.00082** | 0.00506 |
+| action | 0.27338 | 0.26982 (−0.00356) | **0.27145 (−0.00192)** | 0.00525 |
+| point | 0.16984 | 0.17066 (+0.00082) | **0.17105 (+0.00121)** | 0.00506 |
 
-**VERDICT: REJECT at pilot.** Neither target clears its floor — action gets WORSE
-(−0.00356; the guessed-geometry distances mildly perturb the already-strong action model)
-and point gains only +0.00082 (~1/6 of floor). Full 25-fold + ensemble integration NOT run
-(a cat_disp variant is same-class/highly-correlated with cat → even less ensemble diversity;
-shuttle's far stronger standalone point only yielded +0.00140 sub-floor). Not salvaged with
-other layouts (= ruler over-fitting; and action is negative, not a near-miss). Confirms the
-information-ceiling finding once more: the missing signal is the TRUE landing geometry, which
-the data does not publish. Scaffold + `cat_disp_*` OOF kept for reproducibility (NOT in BASES).
+**VERDICT: REJECT at pilot (round-2, real geometry).** The correct geometry materially
+helped — action's drop halved (−0.00356→−0.00192, now within the noise floor) and point's
+gain rose ~50% (+0.00082→+0.00121) — which validates the dictionary and proves geometry
+mattered. BUT both targets are still sub-floor: point +0.00121 is only ~¼ of the 0.00506
+floor and action is still slightly negative. Full 25-fold + ensemble integration NOT run
+(user decision): a cat_disp variant is same-class/highly-correlated with cat, and shuttle's
+far-stronger standalone point (0.1849, best base) only yielded +0.00140 sub-floor — so a
++0.00121-standalone feature cannot plausibly clear the 0.00168 overall ensemble floor. The
+landing geometry was the real missing piece (round-1→2 confirms it), but even correctly
+encoded, the explicit distance adds too little over the categorical pointId the tree already
+splits on. Reconfirms the information ceiling. Scaffold + real-geometry `_coord()` + `cat_disp_*`
+OOF kept for reproducibility (NOT in BASES). Untried (parked): displacement folded into the
+existing `cat` base directly, or combined with Idea 3 (player Attack/Control/Defensive ratio
+target-encoding) — both lower-priority given the standalone signal.
 
 ### v5 Track A — public A/B pending (catonly leakmax built) (2026-05-30)
 

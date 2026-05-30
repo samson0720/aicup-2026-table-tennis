@@ -40,23 +40,23 @@ def entropy_from_counts(counts: Counter, total: int) -> float:
     return float(-(probs * np.log(probs + 1e-12)).sum())
 
 
-# --- Displacement / "pressure" proxy (opt-in; Idea 1) -----------------------
-# pointId is the next-stroke LANDING ZONE (10 classes, geometry unpublished). We
-# cannot know the true map, so we emit distances under TWO candidate layouts and
-# let the tree pick whichever (if any) carries signal — a wrong layout just adds
-# noise the tree ignores (cf. the feature-pruning result). Strokes alternate, so
-# a player receives the OPPONENT's strokes: prefix[-1] and prefix[-3] both land
-# on the upcoming hitter's side (same frame) => "how far was this player just run".
-def _coord33(z: int) -> tuple[float, float]:
-    """3x3 grid for zones 0..8; zone 9 -> centre (bounded, arbitrary)."""
-    if z == 9:
-        return (1.0, 1.0)
-    return (float(z // 3), float(z % 3))
-
-
-def _coord25(z: int) -> tuple[float, float]:
-    """2x5 grid (row in {0,1}, col in 0..4)."""
-    return (float(z // 5), float(z % 5))
+# --- Displacement / "pressure" proxy (opt-in; Idea 1, real geometry) ---------
+# VERIFIED pointId semantics (NCU CSIE data dictionary + empirical check):
+#   pointId 1..9 = in-play 3x3 landing grid, defined RELATIVE TO THE RECEIVER's
+#     hand. lateral x: forehand{1,4,7}=+1, middle{2,5,8}=0, backhand{3,6,9}=-1;
+#     depth y: short{1,2,3}=1, half-long{4,5,6}=2, long{7,8,9}=3.
+#   pointId 0 = rally-ENDING stroke (off-table/winner/error); 100% of last
+#     strokes, ~never mid-rally -> non-spatial, distance undefined (sentinel).
+# Strokes alternate, and the frame is the receiver's hand, so the UPCOMING hitter
+# receives the opponent's strokes prefix[-1] & prefix[-3] in the SAME (their own)
+# frame => disp_my_* = how far that player was just run between receives. A tree
+# cannot synthesise |x1-x2|+|y1-y2| across two last{k} features, so the explicit
+# distance is genuinely new signal (the markovp rationale).
+def _coord(z: int) -> tuple[float, float] | None:
+    """Receiver-frame (x lateral, y depth) for zones 1..9; None for 0/out-of-range."""
+    if z < 1 or z > 9:
+        return None
+    return (1.0 - float((z - 1) % 3), float((z - 1) // 3) + 1.0)
 
 
 def _euclid(a: tuple[float, float], b: tuple[float, float]) -> float:
@@ -70,31 +70,29 @@ def _manhattan(a: tuple[float, float], b: tuple[float, float]) -> float:
 def displacement_features(prefix: pd.DataFrame) -> dict:
     """Leakage-free movement proxies from OBSERVED prefix landings only.
 
-    All distances are same-frame (same receiving side); -1 sentinel when the
-    prefix is too short, matching the existing last{k}_* convention.
+    Same-frame distances (same receiver); -1 sentinel when the prefix is too
+    short OR an endpoint is the non-spatial zone 0, matching the last{k}_* convention.
     """
     pts = prefix["pointId"].astype(int).tolist()
     n = len(pts)
     feats: dict[str, float | int] = {}
-    # incoming ball the upcoming hitter must reach = prefix[-1] (always present).
-    inc = _coord33(pts[-1])
-    feats["disp_incoming_row33"] = inc[0]
-    feats["disp_incoming_col33"] = inc[1]
+
+    def disp(i: int, j: int) -> tuple[float, float]:
+        if n < max(i, j):
+            return (-1.0, -1.0)
+        a, b = _coord(pts[-i]), _coord(pts[-j])
+        if a is None or b is None:
+            return (-1.0, -1.0)
+        return (_manhattan(a, b), _euclid(a, b))
+
+    # incoming ball the upcoming hitter must reach = prefix[-1] (their frame).
+    inc = _coord(pts[-1])
+    feats["disp_incoming_x"] = inc[0] if inc else -2.0  # forehand/middle/backhand
+    feats["disp_incoming_y"] = inc[1] if inc else -1.0  # depth short/half/long
     # my run: my two most recent receives = opponent strokes at t-1, t-3.
-    if n >= 3:
-        a, b = _coord33(pts[-1]), _coord33(pts[-3])
-        feats["disp_my_euclid33"] = _euclid(a, b)
-        feats["disp_my_manh33"] = _manhattan(a, b)
-        feats["disp_my_euclid25"] = _euclid(_coord25(pts[-1]), _coord25(pts[-3]))
-    else:
-        feats["disp_my_euclid33"] = -1.0
-        feats["disp_my_manh33"] = -1.0
-        feats["disp_my_euclid25"] = -1.0
+    feats["disp_my_manh"], feats["disp_my_euclid"] = disp(1, 3)
     # opponent run: their two most recent receives = my strokes at t-2, t-4.
-    if n >= 4:
-        feats["disp_opp_euclid33"] = _euclid(_coord33(pts[-2]), _coord33(pts[-4]))
-    else:
-        feats["disp_opp_euclid33"] = -1.0
+    feats["disp_opp_manh"], feats["disp_opp_euclid"] = disp(2, 4)
     return feats
 
 
