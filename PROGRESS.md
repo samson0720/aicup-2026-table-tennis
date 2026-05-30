@@ -5,6 +5,36 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 ## v5 — final-rank maximization (2026-05-30, in progress)
 
+### v5 — transductive player-transition adaptation (`markovpt`) — SHIPPED CANDIDATE +0.01867 (2026-05-31) ⭐
+
+New legal information lever: `test_new.csv` exposes 5,668 prefix strokes for all 71
+test players, including the 31/71 players absent from train. Existing `markovp` fits
+player-conditional transition tables from one random cut per train rally and applies
+train-only counts at test time. It does not adapt from observable test-prefix
+transitions.
+
+Added `scripts/produce_markovpt_oof.py`: fit smoothed player-transition counts from
+every fold-train visible transition, then adapt with fold-valid transitions strictly
+before each hidden cut. Test inference mirrors this by adapting with all observable
+`test_new.csv` prefix transitions. Hidden next strokes are never read. Two unit tests
+lock the hidden-cut exclusion and one locks the minimal prediction row semantics.
+
+Honest production A/B using existing nested LR stack + beta decision rule:
+
+| config | action | point | server | overall | lift vs 8-base+beta |
+|---|---:|---:|---:|---:|---:|
+| 8-base + beta production | 0.30182 | 0.19408 | 0.65667 | **0.329691** | — |
+| + `markovpt` append | 0.32843 | 0.21364 | 0.65667 | **0.348160** | **+0.018469** |
+| `markovp` → `markovpt` swap | 0.32631 | 0.21245 | 0.65667 | **0.346836** | **+0.017145** |
+| drop shuttle + `markovpt` append | 0.32835 | 0.21424 | 0.65667 | **0.348365** | **+0.018674** |
+
+Append beats swap: original train-only `markovp` and transductive `markovpt` carry
+complementary signal. Drop-shuttle is the best candidate locally and matches the known
+public preference (prior no-shuttle public 0.4309548). Built upload candidate:
+**`artifacts/submission_FINAL_leakmax_noshuttle_markovpt.csv`** = no-shuttle +
+`markovpt` + existing leak-point ensemble + hard server smoothing. Relative to the
+0.4309548 file it changes 318 action rows, 160 point rows, and 0 server rows.
+
 ### v5 — per-target prior-temperature beta — SHIPPED +0.00261 (2026-05-31) ⭐
 
 **First above-floor honest gain in the whole v5 campaign.** From the teammate branch
