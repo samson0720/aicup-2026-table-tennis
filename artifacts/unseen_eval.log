@@ -1,0 +1,8 @@
+config                   | overall ALL | overall UNSEEN | action/point UNSEEN
+full (8-base)            |     0.32969 |        0.30790 | 0.2479/0.1774
+no-shuttle               |     0.32782 |        0.30457 | 0.2430/0.1739
+no-markovp               |     0.32753 |        0.31045 | 0.2478/0.1839
+no-shuttle,no-markovp    |     0.32562 |        0.30536 | 0.2423/0.1766
+
+unseen slice = 16947/74975 (22.6%); new test ~44% unseen players
+BEST on UNSEEN slice (= best private/new-test bet): no-markovp (0.31045)
