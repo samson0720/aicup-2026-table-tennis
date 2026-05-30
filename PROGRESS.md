@@ -5,6 +5,36 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 ## v5 — final-rank maximization (2026-05-30, in progress)
 
+### v5 Idea 2 — player × landing-ZONE transition (`markovz`) — REJECTED (2026-05-30)
+
+User idea: exploit the verified pointId geometry ([[aicup-pointid-geometry]]) for a
+player×zone target encoding — "where the ball lands drives shot selection (deep→defend,
+short→attack), per player". `scripts/produce_markovz_oof.py` mirrors the SHIPPED `markovp`
+recipe (OOF-safe Dirichlet-α8 backoff global → zone → player×zone) but conditions on the
+incoming zone `last1_pointId` instead of the last action. KEY realization: markovp's POINT
+base is already `P(next_point | player, last1_pointId)` = player×zone for point, so the only
+NOVEL contribution is the ACTION target `P(next_action | player, incoming_zone)` — integrated
+action-only. Cardinality is SAFE (166 players × 9 zones = 1366 cells, less sparse than
+markovp's 166×19 that ships fine; NOT the 166×19×19 that overfit markov2). OOF 74975, test 1845.
+
+Non-destructive integration A/B (new `AICUP_EXTRA_ACTION_BASE` / `AICUP_SCORE_ONLY` env hooks
+in `build_final_perrow.py`; production submissions untouched; baseline reproduced exactly to
+0.3270809552):
+
+| config | action | point | server | overall | lift |
+|---|---:|---:|---:|---:|---:|
+| production (8-base) | 0.29851 | 0.19086 | 0.65667 | **0.3270810** | — |
+| + markovz (action) | 0.29831 | 0.19086 | 0.65667 | 0.3269987 | **−0.00008** |
+
+**VERDICT: REJECT.** Slightly negative (action −0.00020). The mechanism is sound and the
+cardinality is safe, but `P(next_action | player, zone)` is REDUNDANT with the existing stack:
+markovp supplies the player conditioning and the GBDT bases (cat/lgbm) already have
+`gamePlayerId` + `last1_pointId` as raw features they can split on, so the smoothed marginal
+adds no new information for the stacker to use. The "zone drives shot selection" thesis is real
+but already extracted by the 8-base ensemble. Reconfirms saturation. BASES never changed (env-var
+A/B); `produce_markovz_oof.py` + OOF/test parquets kept for reproducibility (NOT in BASES). The
+env A/B hooks are kept as reusable non-destructive gating tooling.
+
 ### v5 Idea 1 — displacement / "pressure" proxy features — REJECTED AT PILOT (2026-05-30)
 
 User idea: pointId is the next-stroke landing ZONE; map it to a 2D grid and feed the

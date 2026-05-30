@@ -32,6 +32,14 @@ BASES = {
     "point": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_point", "cat", "markovp", "shuttle"],
     "server": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_server", "cat"],
 }
+
+# Non-destructive A/B hooks (for gating candidate bases without touching production
+# submissions): AICUP_EXTRA_{ACTION,POINT,SERVER}_BASE appends comma-sep base names;
+# AICUP_SCORE_ONLY=1 prints scores and returns before writing any submission/meta.
+for _t in ("action", "point", "server"):
+    _extra = os.environ.get(f"AICUP_EXTRA_{_t.upper()}_BASE", "").strip()
+    if _extra:
+        BASES[_t] = BASES[_t] + [b for b in _extra.split(",") if b and b not in BASES[_t]]
 KEYS = ["rally_uid", "seed", "fold", "cut_strikeNumber"]
 SPEC = [("multiclass", "action", 19, "actionId"),
         ("multiclass", "point", 10, "pointId"),
@@ -173,6 +181,10 @@ def main() -> None:
     print(json.dumps(scores, indent=2))
     print(f"best single base (per-row) lgbm15 overall = 0.3027")
     print(f"honest ensemble lift over best base       = {scores['overall'] - 0.3027:+.4f}  (noise floor 0.00168)")
+
+    if os.environ.get("AICUP_SCORE_ONLY"):
+        print("AICUP_SCORE_ONLY set -> skipping submission/meta writes")
+        return
 
     safe = pd.DataFrame(submission)[["rally_uid", "actionId", "pointId", "serverGetPoint"]]
     safe["serverGetPoint"] = np.clip(safe["serverGetPoint"], 1e-5, 1 - 1e-5)
