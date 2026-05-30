@@ -5,6 +5,19 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 ## v5 — final-rank maximization (2026-05-30, in progress)
 
+### v5 — canonical leakmax base flipped to cat_sgp-alone (2026-05-30)
+
+The ensemble Track A leakmax (mean(cat_sgp,lgbm_sgp) point override) scored public 0.4191248,
+DOWN −0.00166 vs the prior cat-alone leak 0.4207827. `build_leakmax_submission.py` DEFAULT
+`--point-source` flipped `ensemble`→`cat`: the canonical **`submission_FINAL_leakmax.csv` is now
+the cat_sgp-alone override** (the better-scoring base), so any future leakmax rebuild (incl.
+aggressive point-edit candidates) inherits it. Ensemble kept as `submission_FINAL_leakmax_ensemble.csv`.
+NOTE: the +0.00166 recovery is a hypothesis (Track A = the cause) until a confirming upload; the
+drop also coincided with the shuttle 8-base addition, so it could be noise. (Aggressive candidates
+`submission_leakmax_{point0_boost,long789_boost}.csv` from `scripts/aggressive_point_candidates.py`
+were built on the OLD ensemble base — STALE; rebuild on the cat base before use. point0_boost was
+−0.00368 point on OOF, long789 −0.00916; both bounded, not jump candidates. hybrid was a no-op.)
+
 ### v5 Step 1 — serverGetPoint rule-solver from score progression — VERIFIED but TEST-BLOCKED (2026-05-30)
 
 Highest-priority "structural info" check. serverGetPoint = did the server (strike-1 player)

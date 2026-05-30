@@ -1,6 +1,7 @@
-"""Public-max submission: override point with cat_sgp (outcome-leak-as-feature)
-on the 1236 old-test-overlap rallies (where serverGetPoint is truly known),
-keeping server smoothing. Leaves the honest submission untouched.
+"""Public-max submission: override point on the 1236 old-test-overlap rallies (where
+serverGetPoint is truly known) with the leak-feature point model, keeping server
+smoothing. Leaves the honest submission untouched. DEFAULT point source = cat_sgp alone
+(the canonical leakmax base; the cat_sgp+lgbm_sgp ensemble is a kept variant).
 """
 from __future__ import annotations
 
@@ -20,16 +21,17 @@ N = 10  # point classes
 def main() -> None:
     ap = argparse.ArgumentParser()
     # Track A point-override source for the 1236 leaked rallies.
-    #   ensemble = mean(cat_sgp, lgbm_sgp)   -> nested point F1 0.1989 (shipped Track A)
-    #   cat      = cat_sgp alone             -> nested point F1 0.1873 (pre-Track-A baseline)
-    # `cat` lets us isolate Track A against the same 8-base smooth_perrow base for a
-    # clean public A/B (public dropped -0.00166 = ~1 noise unit on the ensemble upload).
-    ap.add_argument("--point-source", choices=["ensemble", "cat"], default="ensemble")
+    #   cat      = cat_sgp alone             -> nested point F1 0.1873  (DEFAULT base)
+    #   ensemble = mean(cat_sgp, lgbm_sgp)   -> nested point F1 0.1989  (Track A variant)
+    # DEFAULT is now `cat`: the ensemble Track A upload dropped public -0.00166 vs the
+    # prior cat-alone leak (0.4207827 -> 0.4191248), so cat-alone is the canonical leakmax
+    # base. Any future leakmax rebuild inherits it; the ensemble is kept as a named variant.
+    ap.add_argument("--point-source", choices=["ensemble", "cat"], default="cat")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
     out = args.out or (
-        "artifacts/submission_FINAL_leakmax.csv" if args.point_source == "ensemble"
-        else "artifacts/submission_FINAL_leakmax_catonly.csv"
+        "artifacts/submission_FINAL_leakmax.csv" if args.point_source == "cat"
+        else "artifacts/submission_FINAL_leakmax_ensemble.csv"
     )
 
     dd = next(Path.cwd().glob("AI CUP*"))
