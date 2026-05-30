@@ -20,7 +20,12 @@ from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader, Subset
 
 from scripts.oof_loader import OOF_DIR, write_oof
-from scripts.seq_dataset import MirrorPositionActionDataset, RallyPrefixDataset, collate_batch
+from scripts.seq_dataset import (
+    MirrorPositionActionDataset,
+    RallyPrefixDataset,
+    RallyTransitionDataset,
+    collate_batch,
+)
 from scripts.seq_eval import warmup_cosine_lambda
 from scripts.shuttle_model import ShuttleForecaster
 
@@ -128,6 +133,64 @@ def _training_dataset(ds: RallyPrefixDataset, indices: list[int], mirror_positio
     return MirrorPositionActionDataset(subset) if mirror_position else subset
 
 
+def _pretrain_transitions(
+    args: argparse.Namespace,
+    model: nn.Module,
+    train: pd.DataFrame,
+    rally_uids: list[int],
+    fold: int,
+    device: torch.device,
+) -> dict[str, float]:
+    ds = RallyTransitionDataset(train, rally_uids, fold)
+    loader = DataLoader(
+        ds,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=args.num_workers,
+        collate_fn=collate_batch,
+    )
+    rows = train[train["rally_uid"].isin(rally_uids) & train["strikeNumber"].gt(1)]
+    w_action = _class_weights(rows["actionId"].to_numpy(), 19, device)
+    w_point = _class_weights(rows["pointId"].to_numpy(), 10, device)
+    opt = torch.optim.AdamW(model.parameters(), lr=args.pretrain_lr, weight_decay=args.weight_decay)
+    total_steps = args.pretrain_transition_epochs * max(1, len(loader))
+    sched = torch.optim.lr_scheduler.LambdaLR(
+        opt,
+        warmup_cosine_lambda(int(args.warmup_frac * total_steps), total_steps),
+    )
+    scaler = GradScaler(enabled=device.type == "cuda")
+    last_train_loss = float("nan")
+    print(
+        f"pretrain fold{fold}: {len(ds)} fold-train next-stroke transitions, "
+        f"{args.pretrain_transition_epochs} epochs",
+        flush=True,
+    )
+    for epoch in range(1, args.pretrain_transition_epochs + 1):
+        model.train()
+        epoch_loss = 0.0
+        n_batches = 0
+        for batch in loader:
+            opt.zero_grad(set_to_none=True)
+            with autocast(enabled=device.type == "cuda"):
+                out = model(
+                    batch["tokens"].to(device),
+                    batch["floats"].to(device),
+                    batch["mask"].to(device),
+                )
+                loss = _multitask_loss(out, batch, device, w_action, w_point)
+            scaler.scale(loss).backward()
+            scaler.unscale_(opt)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+            scaler.step(opt)
+            scaler.update()
+            sched.step()
+            epoch_loss += loss.item()
+            n_batches += 1
+        last_train_loss = epoch_loss / max(1, n_batches)
+        print(f"pretrain fold{fold} epoch{epoch} train_loss={last_train_loss:.4f}", flush=True)
+    return {"examples": float(len(ds)), "last_train_loss": last_train_loss}
+
+
 def run_one_fold(
     args: argparse.Namespace,
     train: pd.DataFrame,
@@ -171,6 +234,11 @@ def run_one_fold(
 
     w_action = _class_weights(_labels(ds, train_idx, "y_action"), 19, device)
     w_point = _class_weights(_labels(ds, train_idx, "y_point"), 10, device)
+    if args.pretrain_transition_epochs:
+        rally_uids = [ds._rallies[i] for i in train_idx]
+        pretrain_log = _pretrain_transitions(args, model, train, rally_uids, fold, device)
+    else:
+        pretrain_log = None
 
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     total_steps = args.epochs * max(1, len(train_loader))
@@ -233,6 +301,8 @@ def run_one_fold(
     val["seed"] = np.array(seed)
     best["best_epoch"] = float(epoch - bad_epochs)
     best["last_train_loss"] = last_train_loss
+    if pretrain_log is not None:
+        best["pretrain"] = pretrain_log
     return val, best
 
 
@@ -330,6 +400,8 @@ def run_predict_test(
 
     w_action = _class_weights(_labels(ds, all_idx, "y_action"), 19, device)
     w_point = _class_weights(_labels(ds, all_idx, "y_point"), 10, device)
+    if args.pretrain_transition_epochs:
+        _pretrain_transitions(args, model, train, ds._rallies, 0, device)
 
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     total_steps = args.epochs * max(1, len(train_loader))
@@ -409,6 +481,8 @@ def run(args: argparse.Namespace) -> None:
                 "warmup_frac": args.warmup_frac,
                 "clip": args.clip,
                 "mirror_position_augment": args.mirror_position_augment,
+                "pretrain_transition_epochs": args.pretrain_transition_epochs,
+                "pretrain_lr": args.pretrain_lr,
                 "per_fold_best": logs,
             },
             indent=2,
@@ -438,6 +512,9 @@ def main() -> None:
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--mirror-position-augment", action="store_true",
                         help="append positionId 2<->3 mirrored copies for action-only supervision")
+    parser.add_argument("--pretrain-transition-epochs", type=int, default=0,
+                        help="pretrain on every fold-train prefix->next-stroke transition")
+    parser.add_argument("--pretrain-lr", type=float, default=3e-4)
     parser.add_argument("--cpu", action="store_true")
     parser.add_argument("--predict-test", action="store_true",
                         help="train one full-train model and write single-cut test predictions")

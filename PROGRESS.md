@@ -70,6 +70,23 @@ by more than the action noise floor (0.00525). Do NOT burn a full 25-fold run. S
 pilot OOF, `artifacts/shuttle_aug_pilot_run_log.json`, and the verified gate JSON are kept
 for reproducibility. Next: Track B2 fold-safe next-stroke transition pretraining pilot.
 
+### v5 Track B2 — ShuttleNet transition pretraining — PILOT PENDING
+
+Added opt-in `--pretrain-transition-epochs` / `--pretrain-lr` to `train_shuttle.py` and
+`RallyTransitionDataset` in `seq_dataset.py`. Before the normal one-cut-per-rally
+fine-tune, each OOF model can now pretrain on every **fold-train-only** prefix→next-stroke
+transition with the same action+point objective. This is leakage-safe: validation-rally
+strokes are excluded from that fold's pretraining corpus. Test refit may use all train
+rallies. Default `0` leaves the shipped `shuttle` path unchanged.
+
+Dataset accounting: train has 84,707 total strokes and **69,712 usable next-stroke
+transitions** (the 14,995 rally-first strokes have no preceding prefix). For seed11 pilot
+folds 0/1/2, fold-train transition counts are 54,964 / 56,199 / 55,135. RTX-3090 smoke
+passed end-to-end (`pretrain 1ep → fine-tune 1ep → OOF write`); full suite **64 tests
+green**. Next: pilot seed11×folds0-2 with 3 transition-pretrain epochs, then the original
+50ep/patience12 fine-tune. Compare with `shuttle_pilot` via `score_shuttle_pilot.py`;
+full 25-fold only if competitive.
+
 ## Private-push v4 (2026-05-30) — parallel multi-bet + public leak expansion
 
 Spec `docs/superpowers/specs/2026-05-30-aicup-private-push-v4-design.md`, plan

@@ -1,7 +1,13 @@
 import pandas as pd
 import torch
 
-from scripts.seq_dataset import CATEGORICAL_COLS, MAX_LEN, RallyPrefixDataset, collate_batch
+from scripts.seq_dataset import (
+    CATEGORICAL_COLS,
+    MAX_LEN,
+    RallyPrefixDataset,
+    RallyTransitionDataset,
+    collate_batch,
+)
 
 
 def _fake_train():
@@ -65,3 +71,12 @@ def test_collate_batch_shapes():
     batch = collate_batch([ds[0], ds[1]])
     assert batch["tokens"].shape == (2, MAX_LEN, len(CATEGORICAL_COLS))
     assert batch["y_server"].shape == (2,)
+
+
+def test_transition_dataset_uses_every_nonfirst_stroke_as_target():
+    ds = RallyTransitionDataset(_fake_train(), rally_uids=[0, 2], fold=7)
+    assert len(ds) == 8
+    assert [ds[i]["target_strike"] for i in range(len(ds))] == [2, 3, 4, 5, 2, 3, 4, 5]
+    assert [ds[i]["fold"] for i in range(len(ds))] == [7] * 8
+    assert ds[0]["y_action"].item() == 2
+    assert int(ds[0]["mask"].sum()) == 1

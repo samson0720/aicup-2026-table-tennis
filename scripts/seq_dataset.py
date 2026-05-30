@@ -24,6 +24,36 @@ MAX_LEN = 24
 POSITION_COL_IDX = CATEGORICAL_COLS.index("positionId")
 
 
+def _build_item(group: pd.DataFrame, rally_uid: int, cut: int, fold: int) -> dict[str, torch.Tensor | int]:
+    prefix = group[group["strikeNumber"] < cut].tail(MAX_LEN).reset_index(drop=True)
+    target = group[group["strikeNumber"] == cut]
+    if target.empty:
+        raise IndexError(f"missing target stroke for rally_uid={rally_uid}, cut={cut}")
+    target_row = target.iloc[0]
+
+    tokens = np.zeros((MAX_LEN, len(CATEGORICAL_COLS)), dtype=np.int64)
+    floats = np.zeros((MAX_LEN, len(SCORE_FLOAT_COLS)), dtype=np.float32)
+    mask = np.zeros(MAX_LEN, dtype=bool)
+    for i, (_, row) in enumerate(prefix.iterrows()):
+        for j, col in enumerate(CATEGORICAL_COLS):
+            tokens[i, j] = int(row[col])
+        for j, col in enumerate(SCORE_FLOAT_COLS):
+            floats[i, j] = float(row[col])
+        mask[i] = True
+
+    return {
+        "tokens": torch.from_numpy(tokens),
+        "floats": torch.from_numpy(floats),
+        "mask": torch.from_numpy(mask),
+        "y_action": torch.tensor(int(target_row["actionId"]), dtype=torch.long),
+        "y_point": torch.tensor(int(target_row["pointId"]), dtype=torch.long),
+        "y_server": torch.tensor(float(group.iloc[0]["serverGetPoint"]), dtype=torch.float32),
+        "rally_uid": int(rally_uid),
+        "fold": int(fold),
+        "target_strike": int(cut),
+    }
+
+
 class RallyPrefixDataset(Dataset):
     """One item per CV split row for a single seed.
 
@@ -51,33 +81,32 @@ class RallyPrefixDataset(Dataset):
         rally_uid = self._rallies[idx]
         group = self._by_rally[rally_uid]
         cut = int(self._cuts[rally_uid])
-        prefix = group[group["strikeNumber"] < cut].tail(MAX_LEN).reset_index(drop=True)
-        target = group[group["strikeNumber"] == cut]
-        if target.empty:
-            raise IndexError(f"missing target stroke for rally_uid={rally_uid}, cut={cut}")
-        target_row = target.iloc[0]
+        return _build_item(group, rally_uid, cut, self._folds[rally_uid])
 
-        tokens = np.zeros((MAX_LEN, len(CATEGORICAL_COLS)), dtype=np.int64)
-        floats = np.zeros((MAX_LEN, len(SCORE_FLOAT_COLS)), dtype=np.float32)
-        mask = np.zeros(MAX_LEN, dtype=bool)
-        for i, (_, row) in enumerate(prefix.iterrows()):
-            for j, col in enumerate(CATEGORICAL_COLS):
-                tokens[i, j] = int(row[col])
-            for j, col in enumerate(SCORE_FLOAT_COLS):
-                floats[i, j] = float(row[col])
-            mask[i] = True
 
-        return {
-            "tokens": torch.from_numpy(tokens),
-            "floats": torch.from_numpy(floats),
-            "mask": torch.from_numpy(mask),
-            "y_action": torch.tensor(int(target_row["actionId"]), dtype=torch.long),
-            "y_point": torch.tensor(int(target_row["pointId"]), dtype=torch.long),
-            "y_server": torch.tensor(float(group.iloc[0]["serverGetPoint"]), dtype=torch.float32),
-            "rally_uid": int(rally_uid),
-            "fold": int(self._folds[rally_uid]),
-            "target_strike": cut,
+class RallyTransitionDataset(Dataset):
+    """Every usable prefix -> next-stroke transition from selected rallies."""
+
+    def __init__(self, train: pd.DataFrame, rally_uids: list[int], fold: int):
+        train = train[train["rally_uid"].isin(rally_uids)].copy()
+        self._by_rally = {
+            int(rally_uid): group.sort_values("strikeNumber").reset_index(drop=True)
+            for rally_uid, group in train.groupby("rally_uid", sort=False)
         }
+        self._fold = int(fold)
+        self._transitions = [
+            (rally_uid, int(cut))
+            for rally_uid, group in self._by_rally.items()
+            for cut in group["strikeNumber"].tolist()
+            if int(cut) > 1
+        ]
+
+    def __len__(self) -> int:
+        return len(self._transitions)
+
+    def __getitem__(self, idx: int) -> dict[str, torch.Tensor | int]:
+        rally_uid, cut = self._transitions[idx]
+        return _build_item(self._by_rally[rally_uid], rally_uid, cut, self._fold)
 
 
 class MirrorPositionActionDataset(Dataset):
