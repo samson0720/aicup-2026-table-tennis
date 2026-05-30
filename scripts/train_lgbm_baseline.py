@@ -134,6 +134,33 @@ def add_prefix_features(prefix: pd.DataFrame, target_strike_number: int) -> dict
         row["last_action_changed"] = -1
         row["last_point_changed"] = -1
 
+    # pointId joint / dispersion features. Diagnostics (diag_point_features.py)
+    # show the strongest next-pointId signals are JOINT codes: the (last2,last1)
+    # point bigram (MI 4.8%) and (last_point,last_position) (MI 4.9%) -- both
+    # higher than any single column. The model previously saw last1/last2 pointId
+    # only as separate features, so a tree could not split on the joint transition
+    # state in one node. These are strictly prefix-derived (no leakage).
+    #
+    # NOTE (2026-05-31): measured below the noise floor on the base LGBMs
+    # (point F1 +0.0007..0.0009, overall flat/slightly negative) because the
+    # existing point_cnt_*/point_rate_*/last1-5_pointId/last_action_point columns
+    # already let the trees reconstruct these joints. Kept on this branch for the
+    # record; NOT merged into the 0.4247 line. See PROGRESS.md.
+    p1 = int(row["last1_pointId"])
+    p2 = int(row["last2_pointId"])  # -1 when prefix_len < 2 (from the last-strokes loop)
+    pos1 = int(row["last1_positionId"])
+    pos2 = int(row["last2_positionId"])
+    row["bigram_last_point"] = p2 * 10 + p1 if p2 >= 0 else -1
+    row["last_point_position"] = p1 * 10 + pos1
+    row["bigram_last_position"] = pos2 * 4 + pos1 if pos2 >= 0 else -1
+    point_hist = prefix["pointId"].astype(int).to_numpy()
+    row["std_pointId"] = float(point_hist.std()) if prefix_len > 1 else 0.0
+    if prefix_len >= 2:
+        switches = int((point_hist[1:] != point_hist[:-1]).sum())
+        row["point_switch_rate"] = switches / (prefix_len - 1)
+    else:
+        row["point_switch_rate"] = 0.0
+
     return row
 
 
