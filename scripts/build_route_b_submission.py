@@ -139,9 +139,15 @@ def main() -> None:
     point_prior /= point_prior.sum()
     action_thr = np.array(json.loads(Path("artifacts/route_b_thr_action.json").read_text()))
     point_thr = np.array(json.loads(Path("artifacts/route_b_thr_point.json").read_text()))
+    # Per-target prior-correction temperatures chosen during scoring (score_chain).
+    # Default to the legacy beta=1 if the file predates the beta selection step.
+    action_beta_p = Path("artifacts/route_b_beta_action.json")
+    point_beta_p = Path("artifacts/route_b_beta_point.json")
+    action_beta = json.loads(action_beta_p.read_text()) if action_beta_p.exists() else 1.0
+    point_beta = json.loads(point_beta_p.read_text()) if point_beta_p.exists() else 1.0
 
-    action_pred = apply_thresholds(prior_correct(p_action_test, action_prior), action_thr)
-    point_pred = apply_thresholds(prior_correct(p_point_test, point_prior), point_thr)
+    action_pred = apply_thresholds(prior_correct(p_action_test, action_prior, beta=action_beta), action_thr)
+    point_pred = apply_thresholds(prior_correct(p_point_test, point_prior, beta=point_beta), point_thr)
 
     sub = pd.DataFrame({
         "rally_uid": rally_uid.astype(int),

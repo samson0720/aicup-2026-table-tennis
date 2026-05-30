@@ -75,7 +75,7 @@ def _stack_oof(X, y, groups, kind, n_cls, n_folds=5):
     out = np.zeros((len(y), n_cls if kind == "multiclass" else 1), dtype=np.float64)
     for tr, va in GroupKFold(n_splits=n_folds).split(X, y, groups):
         if kind == "multiclass":
-            clf = LogisticRegression(multi_class="multinomial", solver="lbfgs", max_iter=300, C=1.0)
+            clf = LogisticRegression(solver="lbfgs", max_iter=300, C=1.0)
             clf.fit(X[tr], y[tr])
             p = clf.predict_proba(X[va])
             for i, c in enumerate(clf.classes_):
@@ -96,6 +96,19 @@ def _nested_f1(corrected, y, groups, n_cls, n_folds=5):
     return float(f1_score(y, yhat, labels=list(range(n_cls)), average="macro", zero_division=0))
 
 
+def _select_beta_nested(stk, prior, y, groups, n_cls,
+                        betas=tuple(round(b, 2) for b in np.arange(0.0, 1.51, 0.1))):
+    """Pick the prior-correction temperature that maximizes the honest nested
+    macro-F1. beta=1 is the legacy fixed value; pointId typically prefers ~0.4
+    and actionId is hurt by full correction (see scripts/diag_prior_headroom.py)."""
+    best_beta, best_f1 = 1.0, -1.0
+    for b in betas:
+        f1 = _nested_f1(prior_correct(stk, prior, beta=b), y, groups, n_cls)
+        if f1 > best_f1 + 1e-12:
+            best_f1, best_beta = f1, float(b)
+    return best_beta, best_f1
+
+
 def main() -> None:
     train = pd.read_csv(_data_dir() / "train.csv")
     test = pd.read_csv(_data_dir() / "test_new.csv")
@@ -104,6 +117,7 @@ def main() -> None:
 
     scores: dict[str, float] = {}
     deploy_thr: dict[str, np.ndarray] = {}
+    deploy_beta: dict[str, float] = {}
     submission: dict[str, np.ndarray] = {"rally_uid": rally_uids}
 
     for kind, target, n_cls, y_col in SPEC:
@@ -123,14 +137,17 @@ def main() -> None:
             scores["server_auc"] = float(roc_auc_score(y, stk[:, 0]))
         else:
             prior = np.bincount(y, minlength=n_cls).astype(float); prior /= prior.sum()
-            corrected = prior_correct(stk, prior)
+            beta, _ = _select_beta_nested(stk, prior, y, groups, n_cls)
+            deploy_beta[target] = beta
+            corrected = prior_correct(stk, prior, beta=beta)
             scores[f"{target}_macro_f1"] = _nested_f1(corrected, y, groups, n_cls)
+            scores[f"{target}_beta"] = beta
             # deployment thresholds: tuned on ALL OOF (no test labels available)
             deploy_thr[target] = tune_thresholds(corrected, y, n_cls)
 
         # ---- test-time prediction (single-cut per rally, distribution-matched) ----
         if kind == "multiclass":
-            clf = LogisticRegression(multi_class="multinomial", solver="lbfgs", max_iter=500, C=1.0)
+            clf = LogisticRegression(solver="lbfgs", max_iter=500, C=1.0)
         else:
             clf = LogisticRegression(max_iter=500, C=1.0)
         clf.fit(X, y)
@@ -144,7 +161,8 @@ def main() -> None:
             for i, c in enumerate(clf.classes_):
                 aligned[:, int(c)] = raw[:, i]
             prior = np.bincount(y, minlength=n_cls).astype(float); prior /= prior.sum()
-            pred = apply_thresholds(prior_correct(aligned, prior), deploy_thr[target])
+            pred = apply_thresholds(
+                prior_correct(aligned, prior, beta=deploy_beta[target]), deploy_thr[target])
             submission[y_col] = pred.astype(int)
         else:
             submission["serverGetPoint"] = clf.predict_proba(Xt)[:, list(clf.classes_).index(1)]

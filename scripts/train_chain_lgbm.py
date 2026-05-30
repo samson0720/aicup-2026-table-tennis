@@ -20,7 +20,7 @@ import pandas as pd
 from sklearn.metrics import f1_score, roc_auc_score
 
 from scripts.oof_loader import write_oof
-from scripts.postprocess import apply_thresholds, prior_correct, tune_thresholds
+from scripts.postprocess import apply_thresholds, prior_correct, select_beta, tune_thresholds
 from scripts.score_oof import overall
 from scripts.train_lgbm_baseline import (
     TARGET_ACTION_CLASSES,
@@ -190,8 +190,18 @@ def score_chain() -> dict[str, float]:
     point_prior = np.bincount(point["y_pointId"], minlength=N_POINT).astype(float)
     point_prior /= point_prior.sum()
 
-    action_corrected = prior_correct(action_probs, action_prior)
-    point_corrected = prior_correct(point_probs, point_prior)
+    # Per-target prior-correction temperature, chosen by honest cross-seed CV
+    # (beta=1 is the legacy hardcoded value; pointId prefers a milder ~0.4 and
+    # actionId is hurt by full correction). Thresholds are then tuned on the
+    # beta-corrected probabilities so the two steps stay consistent.
+    action_beta, _ = select_beta(
+        action_probs, action["y_actionId"].to_numpy(), action["seed"].to_numpy(), N_ACTION
+    )
+    point_beta, _ = select_beta(
+        point_probs, point["y_pointId"].to_numpy(), point["seed"].to_numpy(), N_POINT
+    )
+    action_corrected = prior_correct(action_probs, action_prior, beta=action_beta)
+    point_corrected = prior_correct(point_probs, point_prior, beta=point_beta)
     action_thresholds = tune_thresholds(action_corrected, action["y_actionId"].to_numpy(), N_ACTION)
     point_thresholds = tune_thresholds(point_corrected, point["y_pointId"].to_numpy(), N_POINT)
 
@@ -218,10 +228,14 @@ def score_chain() -> dict[str, float]:
         "point_macro_f1": point_f1,
         "server_auc": server_auc,
         "overall": overall(action_f1, point_f1, server_auc),
+        "action_beta": action_beta,
+        "point_beta": point_beta,
     }
     Path("artifacts/route_b_chain_scores.json").write_text(json.dumps(out, indent=2))
     Path("artifacts/route_b_thr_action.json").write_text(json.dumps(action_thresholds.tolist()))
     Path("artifacts/route_b_thr_point.json").write_text(json.dumps(point_thresholds.tolist()))
+    Path("artifacts/route_b_beta_action.json").write_text(json.dumps(action_beta))
+    Path("artifacts/route_b_beta_point.json").write_text(json.dumps(point_beta))
     return out
 
 
