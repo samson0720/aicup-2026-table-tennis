@@ -70,7 +70,7 @@ by more than the action noise floor (0.00525). Do NOT burn a full 25-fold run. S
 pilot OOF, `artifacts/shuttle_aug_pilot_run_log.json`, and the verified gate JSON are kept
 for reproducibility. Next: Track B2 fold-safe next-stroke transition pretraining pilot.
 
-### v5 Track B2 — ShuttleNet transition pretraining — PILOT PENDING
+### v5 Track B2 — ShuttleNet transition pretraining — PILOT GREEN, FULL OOF PENDING
 
 Added opt-in `--pretrain-transition-epochs` / `--pretrain-lr` to `train_shuttle.py` and
 `RallyTransitionDataset` in `seq_dataset.py`. Before the normal one-cut-per-rally
@@ -83,9 +83,21 @@ Dataset accounting: train has 84,707 total strokes and **69,712 usable next-stro
 transitions** (the 14,995 rally-first strokes have no preceding prefix). For seed11 pilot
 folds 0/1/2, fold-train transition counts are 54,964 / 56,199 / 55,135. RTX-3090 smoke
 passed end-to-end (`pretrain 1ep → fine-tune 1ep → OOF write`); full suite **64 tests
-green**. Next: pilot seed11×folds0-2 with 3 transition-pretrain epochs, then the original
-50ep/patience12 fine-tune. Compare with `shuttle_pilot` via `score_shuttle_pilot.py`;
-full 25-fold only if competitive.
+green**. Real RTX-3090 pilot ran seed11×folds0-2 with 3 transition-pretrain epochs, then
+the original 50ep/patience12 fine-tune. Verified by `scripts/score_shuttle_pilot.py` on
+the same 8960-row OOF slice:
+
+| model | action | point |
+|---|---:|---:|
+| shuttle_pilot baseline | 0.268138 | 0.182778 |
+| shuttle_pretrain_pilot | 0.283852 | 0.182471 |
+| **delta** | **+0.015713** | **−0.000307** |
+
+**VERDICT: PILOT GREEN.** The action lift is ~3× the action noise floor (0.00525), while
+point is effectively flat. Proceed to full 25-fold OOF + test refit as
+`shuttle_pretrain`, then swap it against `shuttle` in the real `build_final_perrow`
+production A/B. Ship only if overall lift vs current 8-base **0.327081** exceeds 0.00168
+and the full action claim remains above its 0.00525 floor.
 
 ## Private-push v4 (2026-05-30) — parallel multi-bet + public leak expansion
 

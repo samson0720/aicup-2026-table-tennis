@@ -1,0 +1,60 @@
+{
+  "seeds": [
+    11
+  ],
+  "folds": [
+    0,
+    1,
+    2
+  ],
+  "epochs": 50,
+  "patience": 12,
+  "batch_size": 256,
+  "d_model": 256,
+  "nhead": 4,
+  "layers": 4,
+  "ffn": 768,
+  "dropout": 0.2,
+  "lr": 0.0003,
+  "weight_decay": 0.0001,
+  "warmup_frac": 0.05,
+  "clip": 1.0,
+  "mirror_position_augment": false,
+  "pretrain_transition_epochs": 3,
+  "pretrain_lr": 0.0003,
+  "per_fold_best": {
+    "11_0": {
+      "action_f1": 0.3639941259988694,
+      "point_f1": 0.1806112959170207,
+      "overall": 0.272302710957945,
+      "best_epoch": 1.0,
+      "last_train_loss": 1.6968620533638812,
+      "pretrain": {
+        "examples": 54964.0,
+        "last_train_loss": 2.2828857843265977
+      }
+    },
+    "11_1": {
+      "action_f1": 0.33562491047609944,
+      "point_f1": 0.18260989057663116,
+      "overall": 0.2591174005263653,
+      "best_epoch": 22.0,
+      "last_train_loss": 0.9988338680977517,
+      "pretrain": {
+        "examples": 56199.0,
+        "last_train_loss": 2.2935221921313893
+      }
+    },
+    "11_2": {
+      "action_f1": 0.34218827112518296,
+      "point_f1": 0.17493967782039585,
+      "overall": 0.2585639744727894,
+      "best_epoch": 3.0,
+      "last_train_loss": 1.614930773774783,
+      "pretrain": {
+        "examples": 55135.0,
+        "last_train_loss": 2.274712188376321
+      }
+    }
+  }
+}
