@@ -23,7 +23,9 @@ from scripts.train_lgbm_baseline import (
 )
 
 
-def build_one_sample_per_rally(view: pd.DataFrame, splits_sub: pd.DataFrame) -> pd.DataFrame:
+def build_one_sample_per_rally(
+    view: pd.DataFrame, splits_sub: pd.DataFrame, with_displacement: bool = False
+) -> pd.DataFrame:
     """For each rally in `view`, build a single feature row at the seed's cut point."""
     cut_by_rally = dict(zip(splits_sub["rally_uid"], splits_sub["cut_strikeNumber"]))
     rows: list[dict] = []
@@ -36,7 +38,9 @@ def build_one_sample_per_rally(view: pd.DataFrame, splits_sub: pd.DataFrame) -> 
         target = grp[grp["strikeNumber"] == cut]
         if len(prefix) == 0 or len(target) == 0:
             continue
-        feats = add_prefix_features(prefix, int(target.iloc[0]["strikeNumber"]))
+        feats = add_prefix_features(
+            prefix, int(target.iloc[0]["strikeNumber"]), with_displacement=with_displacement
+        )
         feats["y_actionId"] = int(target.iloc[0]["actionId"])
         feats["y_pointId"] = int(target.iloc[0]["pointId"])
         feats["y_serverGetPoint"] = int(grp.iloc[0]["serverGetPoint"])

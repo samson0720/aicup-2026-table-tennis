@@ -1,0 +1,22 @@
+{
+  "baseline_model": "cat",
+  "candidate_model": "cat_disp",
+  "baseline": {
+    "rows": 8960,
+    "action": 0.2733759463847929,
+    "point": 0.16984147596100355
+  },
+  "candidate": {
+    "rows": 8960,
+    "action": 0.26981756444362265,
+    "point": 0.17065840430200602
+  },
+  "delta": {
+    "action": -0.003558381941170252,
+    "point": 0.0008169283410024708
+  },
+  "floors": {
+    "action": 0.00525,
+    "point": 0.00506
+  }
+}

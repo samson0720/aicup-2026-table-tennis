@@ -1,0 +1,12 @@
+=== honest per-row ensemble scores ===
+{
+  "action_macro_f1": 0.29273951650675195,
+  "point_macro_f1": 0.1880792146665321,
+  "server_auc": 0.6566651521428044,
+  "overall": 0.3236605228978745
+}
+best single base (per-row) lgbm15 overall = 0.3027
+honest ensemble lift over best base       = +0.0210  (noise floor 0.00168)
+wrote artifacts/submission_FINAL_safe_perrow.csv: (1845, 4)
+smoothed 1236 overlap rallies
+wrote artifacts/submission_FINAL_smooth_perrow.csv: (1845, 4)

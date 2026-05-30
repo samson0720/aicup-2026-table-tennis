@@ -49,8 +49,8 @@ def run(args) -> None:
             continue
         s_train = splits[(splits["seed"] == seed) & (splits["fold"] != fold)]
         s_valid = splits[(splits["seed"] == seed) & (splits["fold"] == fold)]
-        df_train = build_one_sample_per_rally(train_view, s_train)
-        df_valid = build_one_sample_per_rally(valid_view, s_valid)
+        df_train = build_one_sample_per_rally(train_view, s_train, with_displacement=args.with_displacement)
+        df_valid = build_one_sample_per_rally(valid_view, s_valid, with_displacement=args.with_displacement)
         if df_train.empty or df_valid.empty:
             continue
         feats = [c for c in feature_columns(df_train) if c in df_valid.columns]
@@ -112,6 +112,7 @@ def main() -> None:
     p.add_argument("--leak-sgp", action="store_true", help="feed known serverGetPoint as a feature to action/point models")
     p.add_argument("--keep-features", default=None, help="path to JSON list of feature names to keep (prune the rest)")
     p.add_argument("--model-name", default="cat")
+    p.add_argument("--with-displacement", action="store_true", help="add leakage-free movement/pressure proxy features (Idea 1)")
     p.add_argument("--gpu", action="store_true", help="train CatBoost on the GPU (3090 = device 0)")
     run(p.parse_args())
 

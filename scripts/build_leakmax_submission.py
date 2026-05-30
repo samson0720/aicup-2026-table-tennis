@@ -4,6 +4,7 @@ keeping server smoothing. Leaves the honest submission untouched.
 """
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 import numpy as np
@@ -17,31 +18,47 @@ N = 10  # point classes
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser()
+    # Track A point-override source for the 1236 leaked rallies.
+    #   ensemble = mean(cat_sgp, lgbm_sgp)   -> nested point F1 0.1989 (shipped Track A)
+    #   cat      = cat_sgp alone             -> nested point F1 0.1873 (pre-Track-A baseline)
+    # `cat` lets us isolate Track A against the same 8-base smooth_perrow base for a
+    # clean public A/B (public dropped -0.00166 = ~1 noise unit on the ensemble upload).
+    ap.add_argument("--point-source", choices=["ensemble", "cat"], default="ensemble")
+    ap.add_argument("--out", default=None)
+    args = ap.parse_args()
+    out = args.out or (
+        "artifacts/submission_FINAL_leakmax.csv" if args.point_source == "ensemble"
+        else "artifacts/submission_FINAL_leakmax_catonly.csv"
+    )
+
     dd = next(Path.cwd().glob("AI CUP*"))
     train = pd.read_csv(dd / "train.csv")
     overlap = set(pd.read_csv(dd / "Reference_Only_Old_Test_Data" / "test.csv")["rally_uid"].unique())
 
-    # Track A: leak-feature point ENSEMBLE = mean(cat_sgp, lgbm_sgp). Tune thresholds
-    # on the mean OOF, apply to the mean test probs. (cat_sgp-alone was 0.2003 nested
-    # point F1; the ensemble is 0.2070, +0.0067 > point floor 0.00506.)
     pcols = [f"p_{i}" for i in range(N)]
     keys = ["rally_uid", "seed", "fold", "cut_strikeNumber"]
     cat_oof = read_oof("cat_sgp", "point").sort_values(keys).reset_index(drop=True)
-    lgb_oof = read_oof("lgbm_sgp", "point").sort_values(keys).reset_index(drop=True)
-    assert (cat_oof[keys].values == lgb_oof[keys].values).all(), "leak OOF key misalignment"
-    ens_oof = cat_oof.copy()
-    ens_oof[pcols] = (cat_oof[pcols].to_numpy() + lgb_oof[pcols].to_numpy()) / 2.0
+    cat_t = pd.read_parquet(OOF_DIR / "cat_sgp_point_test.parquet").drop_duplicates("rally_uid").sort_values("rally_uid").reset_index(drop=True)
 
-    oof = attach_labels(ens_oof, train).dropna(subset=["pointId"])
+    if args.point_source == "ensemble":
+        lgb_oof = read_oof("lgbm_sgp", "point").sort_values(keys).reset_index(drop=True)
+        assert (cat_oof[keys].values == lgb_oof[keys].values).all(), "leak OOF key misalignment"
+        src_oof = cat_oof.copy()
+        src_oof[pcols] = (cat_oof[pcols].to_numpy() + lgb_oof[pcols].to_numpy()) / 2.0
+        lgb_t = pd.read_parquet(OOF_DIR / "lgbm_sgp_point_test.parquet").drop_duplicates("rally_uid").sort_values("rally_uid").reset_index(drop=True)
+        assert (cat_t["rally_uid"].values == lgb_t["rally_uid"].values).all(), "leak test key misalignment"
+        Pt = (cat_t[pcols].to_numpy() + lgb_t[pcols].to_numpy()) / 2.0
+    else:  # cat-only (pre-Track-A baseline)
+        src_oof = cat_oof
+        Pt = cat_t[pcols].to_numpy()
+
+    oof = attach_labels(src_oof, train).dropna(subset=["pointId"])
     y = oof["pointId"].astype(int).to_numpy()
     P = oof[pcols].to_numpy()
     prior = np.bincount(y, minlength=N).astype(float); prior /= prior.sum()
     thr = tune_thresholds(prior_correct(P, prior), y, N)
 
-    cat_t = pd.read_parquet(OOF_DIR / "cat_sgp_point_test.parquet").drop_duplicates("rally_uid").sort_values("rally_uid").reset_index(drop=True)
-    lgb_t = pd.read_parquet(OOF_DIR / "lgbm_sgp_point_test.parquet").drop_duplicates("rally_uid").sort_values("rally_uid").reset_index(drop=True)
-    assert (cat_t["rally_uid"].values == lgb_t["rally_uid"].values).all(), "leak test key misalignment"
-    Pt = (cat_t[pcols].to_numpy() + lgb_t[pcols].to_numpy()) / 2.0
     pt_cls = apply_thresholds(prior_correct(Pt, prior), thr)
     sgp_point = dict(zip(cat_t["rally_uid"].astype(int), pt_cls.astype(int)))
 
@@ -52,8 +69,8 @@ def main() -> None:
     assert sm["rally_uid"].nunique() == 1845
     assert sm["actionId"].between(0, 18).all() and sm["pointId"].between(0, 9).all()
     assert sm["serverGetPoint"].between(0, 1).all()
-    sm.to_csv("artifacts/submission_FINAL_leakmax.csv", index=False)
-    print(f"wrote artifacts/submission_FINAL_leakmax.csv: overrode point on {int(mask.sum())} overlap rallies")
+    sm.to_csv(out, index=False)
+    print(f"wrote {out} [{args.point_source}]: overrode point on {int(mask.sum())} overlap rallies")
 
 
 if __name__ == "__main__":

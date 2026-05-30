@@ -40,7 +40,67 @@ def entropy_from_counts(counts: Counter, total: int) -> float:
     return float(-(probs * np.log(probs + 1e-12)).sum())
 
 
-def add_prefix_features(prefix: pd.DataFrame, target_strike_number: int) -> dict:
+# --- Displacement / "pressure" proxy (opt-in; Idea 1) -----------------------
+# pointId is the next-stroke LANDING ZONE (10 classes, geometry unpublished). We
+# cannot know the true map, so we emit distances under TWO candidate layouts and
+# let the tree pick whichever (if any) carries signal — a wrong layout just adds
+# noise the tree ignores (cf. the feature-pruning result). Strokes alternate, so
+# a player receives the OPPONENT's strokes: prefix[-1] and prefix[-3] both land
+# on the upcoming hitter's side (same frame) => "how far was this player just run".
+def _coord33(z: int) -> tuple[float, float]:
+    """3x3 grid for zones 0..8; zone 9 -> centre (bounded, arbitrary)."""
+    if z == 9:
+        return (1.0, 1.0)
+    return (float(z // 3), float(z % 3))
+
+
+def _coord25(z: int) -> tuple[float, float]:
+    """2x5 grid (row in {0,1}, col in 0..4)."""
+    return (float(z // 5), float(z % 5))
+
+
+def _euclid(a: tuple[float, float], b: tuple[float, float]) -> float:
+    return float(((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5)
+
+
+def _manhattan(a: tuple[float, float], b: tuple[float, float]) -> float:
+    return float(abs(a[0] - b[0]) + abs(a[1] - b[1]))
+
+
+def displacement_features(prefix: pd.DataFrame) -> dict:
+    """Leakage-free movement proxies from OBSERVED prefix landings only.
+
+    All distances are same-frame (same receiving side); -1 sentinel when the
+    prefix is too short, matching the existing last{k}_* convention.
+    """
+    pts = prefix["pointId"].astype(int).tolist()
+    n = len(pts)
+    feats: dict[str, float | int] = {}
+    # incoming ball the upcoming hitter must reach = prefix[-1] (always present).
+    inc = _coord33(pts[-1])
+    feats["disp_incoming_row33"] = inc[0]
+    feats["disp_incoming_col33"] = inc[1]
+    # my run: my two most recent receives = opponent strokes at t-1, t-3.
+    if n >= 3:
+        a, b = _coord33(pts[-1]), _coord33(pts[-3])
+        feats["disp_my_euclid33"] = _euclid(a, b)
+        feats["disp_my_manh33"] = _manhattan(a, b)
+        feats["disp_my_euclid25"] = _euclid(_coord25(pts[-1]), _coord25(pts[-3]))
+    else:
+        feats["disp_my_euclid33"] = -1.0
+        feats["disp_my_manh33"] = -1.0
+        feats["disp_my_euclid25"] = -1.0
+    # opponent run: their two most recent receives = my strokes at t-2, t-4.
+    if n >= 4:
+        feats["disp_opp_euclid33"] = _euclid(_coord33(pts[-2]), _coord33(pts[-4]))
+    else:
+        feats["disp_opp_euclid33"] = -1.0
+    return feats
+
+
+def add_prefix_features(
+    prefix: pd.DataFrame, target_strike_number: int, with_displacement: bool = False
+) -> dict:
     prefix = prefix.sort_values("strikeNumber")
     last = prefix.iloc[-1]
     first = prefix.iloc[0]
@@ -133,6 +193,9 @@ def add_prefix_features(prefix: pd.DataFrame, target_strike_number: int) -> dict
     else:
         row["last_action_changed"] = -1
         row["last_point_changed"] = -1
+
+    if with_displacement:
+        row.update(displacement_features(prefix))
 
     return row
 

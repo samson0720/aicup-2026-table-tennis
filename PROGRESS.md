@@ -5,6 +5,57 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 ## v5 — final-rank maximization (2026-05-30, in progress)
 
+### v5 Idea 1 — displacement / "pressure" proxy features — REJECTED AT PILOT (2026-05-30)
+
+User idea: pointId is the next-stroke landing ZONE; map it to a 2D grid and feed the
+player's between-receive RUN distance as a continuous "pressure" feature (big run → safe
+transition shot likely, hard attack unlikely). Trees can't synthesise a Euclidean distance
+from a categorical zone ID, so this is a genuinely new feature TYPE (same rationale that
+shipped markovp). Fixed a leakage bug in the user's formulation: the original used the
+TARGET landing `point_t` (unknown at inference) — the deployed features use OBSERVED prefix
+landings only. Strokes alternate, so the upcoming hitter receives the opponent's strokes;
+`prefix[-1]` and `prefix[-3]` land on the SAME side → `disp_my_*` = that player's run between
+their two most recent receives. pointId geometry is unpublished, so we emit distances under
+TWO layouts (3×3 zones 0–8 + centre for 9; 2×5) and let the tree pick — a wrong layout is
+just noise the tree ignores.
+
+Implementation is opt-in and byte-safe: `add_prefix_features(..., with_displacement=False)`
++ `displacement_features()` in `train_lgbm_baseline.py`, threaded through
+`build_one_sample_per_rally(..., with_displacement=)` and a `--with-displacement` flag on
+`produce_catboost_oof.py`. Default OFF → shipped bases unchanged. 4 unit tests +
+`scripts/score_disp_pilot.py`; full suite 68 green.
+
+Pilot gate (`cat_disp` vs shipped `cat`, seed11×folds0-2, 8960 rows, standalone argmax
+macro-F1; `artifacts/cat_disp_pilot_gate.json`):
+
+| target | cat (baseline) | cat_disp | delta | floor |
+|---|---:|---:|---:|---:|
+| action | 0.27338 | 0.26982 | **−0.00356** | 0.00525 |
+| point | 0.16984 | 0.17066 | **+0.00082** | 0.00506 |
+
+**VERDICT: REJECT at pilot.** Neither target clears its floor — action gets WORSE
+(−0.00356; the guessed-geometry distances mildly perturb the already-strong action model)
+and point gains only +0.00082 (~1/6 of floor). Full 25-fold + ensemble integration NOT run
+(a cat_disp variant is same-class/highly-correlated with cat → even less ensemble diversity;
+shuttle's far stronger standalone point only yielded +0.00140 sub-floor). Not salvaged with
+other layouts (= ruler over-fitting; and action is negative, not a near-miss). Confirms the
+information-ceiling finding once more: the missing signal is the TRUE landing geometry, which
+the data does not publish. Scaffold + `cat_disp_*` OOF kept for reproducibility (NOT in BASES).
+
+### v5 Track A — public A/B pending (catonly leakmax built) (2026-05-30)
+
+The shipped ensemble leakmax (`submission_FINAL_leakmax.csv`, Track A = mean(cat_sgp,lgbm_sgp)
+point override) scored **public 0.4191248**, DOWN −0.00166 vs the user's prior leak upload
+0.4207827 — but that's ~1 noise unit AND two things changed between uploads (Track A point
+ensemble AND the shuttle 8-base addition affecting action/server + non-leaked rows), so it is
+not cleanly attributable and is most consistent with noise. Per the decision framework
+(25-fold CV with variance > a single noisy public reading; Track A's nested point-F1 lift
++0.0116 is a clear local verdict), we do NOT revert on one sub-floor public reading. To
+isolate, added `--point-source {ensemble,cat}` to `build_leakmax_submission.py` (ensemble
+path byte-identical) and built `submission_FINAL_leakmax_catonly.csv` (cat_sgp-alone override,
+same 8-base; differs from ensemble on 392/1845 rallies' point, action/server identical).
+**Pending the user's next public upload to A/B-isolate Track A.**
+
 Spec `docs/superpowers/specs/2026-05-30-aicup-v5-final-rank-design.md`. Reframe: the
 final/private score is over the FULL set INCLUDING the 1236 leaked-serverGetPoint rallies
 (user confirmed), so **the submission to upload is `submission_FINAL_leakmax.csv`** and

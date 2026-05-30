@@ -1,0 +1,13 @@
+Found only 16 unique classes in the data, but have defined 19 classes. Probably something is wrong with data.
+Default metric period is 5 because AUC is/are not implemented for GPU
+Found only 15 unique classes in the data, but have defined 19 classes. Probably something is wrong with data.
+Default metric period is 5 because AUC is/are not implemented for GPU
+Found only 16 unique classes in the data, but have defined 19 classes. Probably something is wrong with data.
+Default metric period is 5 because AUC is/are not implemented for GPU
+catboost task_type=GPU devices=0
+cat seed=11 fold=0 valid_n=3022
+cat seed=11 fold=1 valid_n=3011
+cat seed=11 fold=2 valid_n=2927
+wrote artifacts/oof/cat_disp_action.parquet: rows=8960
+wrote artifacts/oof/cat_disp_point.parquet: rows=8960
+wrote artifacts/oof/cat_disp_server.parquet: rows=8960

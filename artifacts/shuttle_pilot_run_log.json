@@ -1,0 +1,45 @@
+{
+  "seeds": [
+    11
+  ],
+  "folds": [
+    0,
+    1,
+    2
+  ],
+  "epochs": 50,
+  "patience": 12,
+  "batch_size": 256,
+  "d_model": 256,
+  "nhead": 4,
+  "layers": 4,
+  "ffn": 768,
+  "dropout": 0.2,
+  "lr": 0.0003,
+  "weight_decay": 0.0001,
+  "warmup_frac": 0.05,
+  "clip": 1.0,
+  "per_fold_best": {
+    "11_0": {
+      "action_f1": 0.34131183800899734,
+      "point_f1": 0.1711730038107763,
+      "overall": 0.2562424209098868,
+      "best_epoch": 13.0,
+      "last_train_loss": 1.9558924842388072
+    },
+    "11_1": {
+      "action_f1": 0.3191397066640945,
+      "point_f1": 0.18087389158242914,
+      "overall": 0.25000679912326185,
+      "best_epoch": 10.0,
+      "last_train_loss": 2.083775170305942
+    },
+    "11_2": {
+      "action_f1": 0.32428333602493026,
+      "point_f1": 0.17386439052244632,
+      "overall": 0.2490738632736883,
+      "best_epoch": 11.0,
+      "last_train_loss": 2.073200968404611
+    }
+  }
+}
