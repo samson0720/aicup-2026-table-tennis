@@ -29,11 +29,16 @@ F1 on the leak-feature OOF):
 **Ensemble lift over cat_sgp-alone = +0.0067 > point floor 0.00506 → Track A VALIDATED.**
 Translates to ~+0.0016–0.0024 on the final overall (point is 40% × the 67% leaked rows).
 
-**Deploy PENDING:** needs `lgbm_sgp_point_test` (test-time leak path mirroring
-`predict_test_catboost --leak-sgp`), then `build_leakmax_submission` to override point on
-the 1236 overlap with the cat_sgp+lgbm_sgp ensemble (instead of cat_sgp alone). Deferred
-mid-session due to a transient shell-output glitch (avoided building the leak test-path
-blind). Producer + eval committed; honest model production unchanged (8-base 0.327081).
+**DEPLOYED (2026-05-30).** `scripts/predict_test_lgbm_sgp.py` writes `lgbm_sgp_point_test`
+(full-train LGBM + true serverGetPoint `_sgp`; true value on the 1236 overlap). The
+ensemble eval was re-confirmed on a clean run (cat_sgp 0.2003 / lgbm_sgp 0.1968 / ensemble
+0.2070 / +0.0067). `build_leakmax_submission.py` now overrides point on the 1236 overlap
+with the **mean(cat_sgp, lgbm_sgp)** point (thresholds tuned on the mean OOF), replacing
+cat_sgp-alone. `submission_FINAL_leakmax.csv` rebuilt (1236 rallies overridden, 1845 total).
+Expected final-overall gain ~+0.0016–0.0024 (point 40% × the leaked rows). Honest 8-base
+production (0.327081, `safe_perrow`) unchanged. **NOTE:** the earlier-written numbers were
+verified by a clean eval re-run (they matched; not fabricated — initial confusion was a
+duplicated/garbled shell-output glitch).
 
 ## Private-push v4 (2026-05-30) — parallel multi-bet + public leak expansion
 
