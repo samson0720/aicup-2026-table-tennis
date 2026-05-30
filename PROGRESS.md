@@ -3,6 +3,31 @@
 Status as of 2026-05-27. Updated by the active AI agent after every plan task.
 Source-of-truth for the next agent: read this BEFORE touching code.
 
+## 2026-05-31: pointId feature engineering — TRIED, REJECTED (below noise)
+
+Branch `feat/pointid-feature-engineering` (NOT merged into the 0.4247 line).
+
+Added prefix-safe pointId joint/dispersion features to `add_prefix_features`
+(`bigram_last_point`, `last_point_position`, `bigram_last_position`,
+`std_pointId`, `point_switch_rate`). Diagnostic `scripts/diag_point_features.py`
+first confirmed real headroom: the (last2,last1) point bigram and
+(last_point,last_position) joints carry ~4.8–4.9% mutual information with the
+next pointId, more than any single column.
+
+But after rebuilding all base OOF locally and scoring honestly:
+
+| base | point F1 Δ | overall Δ |
+|---|---:|---:|
+| lgbm15 | +0.0007 | -0.0003 |
+| lgbm31 | +0.0009 | +0.0001 |
+| phase_lgbm | -0.0006 | -0.0000 |
+
+All far below the point noise floor (0.00506) and overall noise floor (0.00168);
+action even dipped slightly. Cause: the existing `point_cnt_*`/`point_rate_*`/
+`last1-5_pointId`/`last_action_point`/`phase_last_point` columns already let the
+trees reconstruct these joints, so the explicit codes are redundant. Reverted on
+`feat/per-target-beta`; preserved here for the record only.
+
 ## 2026-05-30: per-target prior-temperature (beta) + new public best 0.4247437
 
 - Added `beta` to `postprocess.prior_correct` (default 1.0, backward compatible)

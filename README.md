@@ -121,9 +121,12 @@ Tests: `pytest -q` (locally:
 1. **Add an XGBoost base** — in the tree-model sweet spot, a different mechanism
    from LGBM, gives the stacker real diversity; runs locally on CPU. Most
    practical.
-2. **pointId feature engineering** — point F1 is only 0.19 yet carries 0.4
-   weight; the largest structural headroom.
-3. **Stacking refinement / HPO** — per-target meta-learner, probability
+2. **Stacking refinement / HPO** — per-target meta-learner, probability
    calibration, Optuna over the bases.
+3. ~~pointId feature engineering~~ — TRIED 2026-05-31, REJECTED. Joint
+   point/position bigram features had real mutual information but the existing
+   `point_cnt_*`/`last1-5_pointId` columns already reconstruct them; lift was
+   below the noise floor. Kept on branch `feat/pointid-feature-engineering` for
+   the record. See PROGRESS.md.
 4. ~~Transformer / sequence models~~ — data size and sequence length are
    unfavorable; lowest ROI, do last or skip.
