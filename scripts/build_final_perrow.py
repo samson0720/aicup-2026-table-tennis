@@ -28,8 +28,8 @@ from scripts.decision_rule import RULES
 from scripts.score_oof import attach_labels, overall
 
 BASES = {
-    "action": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_action", "cat", "markovp"],
-    "point": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_point", "cat", "markovp"],
+    "action": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_action", "cat", "markovp", "shuttle"],
+    "point": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_point", "cat", "markovp", "shuttle"],
     "server": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_server", "cat"],
 }
 KEYS = ["rally_uid", "seed", "fold", "cut_strikeNumber"]

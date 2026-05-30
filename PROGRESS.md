@@ -15,12 +15,19 @@ refactor — pipeline intact.
 ### Private-push v4 — FINAL SUMMARY (2026-05-30)
 
 Goal: lift honest private overall above 0.325678 via parallel multi-bet. Result:
-**no lever cleared the 0.00168 floor; production stays 0.325678** — but L1 (ShuttleNet)
-is a genuine near-miss and the strongest signal in three campaigns.
+L2/L3/L4 sub-floor (rejected); **L1 ShuttleNet +0.00140 (sub-floor by the strict gate
+but the only positive, two-target signal in three campaigns) — SHIPPED on the user's
+explicit decision. Production is now the 8-base ensemble, honest overall 0.327081.**
+
+**UPDATE (2026-05-30): user accepted the +0.00140.** `"shuttle"` added to action+point
+`BASES`; `submission_FINAL_safe_perrow.csv` (private, 0.327081) + `submission_FINAL_smooth_perrow.csv`
++ `submission_FINAL_leakmax.csv` (public, point overridden on 1236 overlap) all regenerated
+on the 8-base ensemble. The strict-gate verdict below ("REJECT near-miss") records the
+methodology; the ship is a deliberate user override of the conservative reseed-noise floor.
 
 | lever | what | verdict | honest ensemble lift |
 |---|---|---|---:|
-| L1 | ShuttleNet dual-encoder neural base | **REJECT (near-miss)** | **+0.00140** (floor 0.00168) |
+| L1 | ShuttleNet dual-encoder neural base | **SHIPPED (user override; +0.00140 sub-floor)** | **+0.00140** (floor 0.00168) |
 | L2 | focal-loss GBDT (`lgbm_focal`) | REJECT | −0.00059 |
 | L3 | higher-order player×2-gram Markov (`markov2`) | REJECT | −0.00103 |
 | L4 | (action,point) joint marginal (`joint`) | REJECT | −0.00071 |
