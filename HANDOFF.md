@@ -1,5 +1,57 @@
 # AI CUP Table Tennis Handoff
 
+> **⚡ NEXT SESSION START HERE (2026-05-30) — v5 Track B (action improvement).**
+> Everything below the divider is older history; read PROGRESS.md first.
+
+## Next-session handoff: v5 Track B
+
+Read first: `PROGRESS.md` (top "v5"/"v4" sections),
+`docs/superpowers/specs/2026-05-30-aicup-v5-final-rank-design.md`, and the memory
+(`MEMORY.md` + `aicup-*` files).
+
+**Current state (do NOT redo):**
+- repo `/home/tom1030507/ai_cup_table/aicup-2026-table-tennis`, branch `p2-route-a`, conda env `aicup-tt`.
+- Final rank = PRIVATE, but the private scoring set INCLUDES the public rows, and the 1236
+  leaked-serverGetPoint rallies ARE counted → **the file to upload is
+  `submission_FINAL_leakmax.csv`** (NOT `safe_perrow`).
+- Honest 8-base ensemble (incl. `shuttle`) = honest overall **0.327081** = `submission_FINAL_safe_perrow.csv`.
+- **Track A is DONE** (leak-point ensemble cat_sgp+lgbm_sgp, nested point-F1 lift **+0.0116**,
+  deployed into leakmax). Don't redo Track A.
+
+**Your task — Track B: make `actionId` stronger.** action is 40% of the score, has NO leak,
+and is the weakest cell (shuttle standalone action 0.2589 / 0.299 in the ensemble) → the
+largest, cleanest headroom; future methods keep compounding into it.
+- **B1 (cheap, first):** symmetry data augmentation (swap acting-player/opponent perspective,
+  mirror `positionId` left↔right) when training the ShuttleNet.
+- **B2 (multi-hour GPU bet):** self-supervised pretraining of the ShuttleNet encoder
+  (masked-stroke / next-stroke objective over all 84k stroke transitions, not just the 75k
+  cut-points), then fine-tune on the prefix→next-stroke task.
+- Pilot-gate each first (seed 11 × folds 0–2 vs shuttle action 0.2589); only competitive
+  pilots go to full 25-fold.
+- Ship gate: honest per-row nested-CV; add/swap the base in `build_final_perrow.py:BASES`,
+  overall lift vs **0.327081** must exceed **0.00168** (action-specific floor 0.00525).
+  Sub-floor → revert, keep scripts, record in PROGRESS. Honest EV: uncertain, don't expect a
+  big jump (information ceiling).
+
+**Process rules (lessons already paid for):**
+- Everything `conda run -n aicup-tt`; GPU `env CUDA_VISIBLE_DEVICES=0` (the 3090 shows as
+  nvidia-smi **index 1**, ~900 MiB = actually training; index 0 is the idle GTX 1080).
+- `scripts/train_shuttle.py` needs `--num-workers 6` or it's data-loading-bound (GPU 0%).
+- OOF/training runs take 10 min–hours: launch with `run_in_background: true`; do NOT hand
+  them to subagents (they time out). **One command per background Bash call** — a newline in
+  a single call gets space-joined and corrupts the command (this bit us twice).
+- Honest per-row scoring only, never seed-average. **Every gate number must come from a real
+  run you verified before writing it to PROGRESS/commit** (an interim commit this session
+  recorded numbers that weren't from a real run — caught and corrected).
+- Final upload = `submission_FINAL_leakmax.csv`; after changing any honest base, rebuild
+  `build_final_perrow` (safe+smooth) then `build_leakmax_submission`.
+- Update PROGRESS + memory and commit each step.
+
+(If on a different machine: the gitignored `artifacts/oof/*.parquet` are NOT in git —
+regenerate them first.)
+
+---
+
 ## Current best public result
 
 - Uploaded file: `artifacts/submission_RECOMMENDED_upload.csv`
