@@ -21,6 +21,26 @@ anticipated this reconstruction. **No gain beyond the existing 1236 serverGetPoi
 Verified solver kept as tooling. (test_new.csv exposes ALL columns except serverGetPoint,
 incl. match/numberGame/rally_id/scoreSelf/scoreOther — confirmed.)
 
+### v5 Step 2 — pointId two-stage / geometry-aware decision rule — REJECTED (2026-05-30)
+
+Restructure the POINT decision (no new base model) on the production per-row point stack,
+gated by the same match-grouped nested CV (`scripts/step2_point_hierarchy.py`). Δoverall =
+0.4·Δpoint, so overall floor 0.00168 needs Δpoint > ~0.0042.
+
+| rule | point macro-F1 | Δ vs prod |
+|---|---:|---:|
+| A baseline (prior_correct + joint 10-class threshold = production) | 0.19086 | — (reproduces exactly) |
+| B hierarchical: decouple terminal(0) threshold + tune 1-9 in renorm subspace | 0.18615 | **−0.00471** |
+| C + lateral/depth geometry blend (verified map) | 0.18100 | **−0.00986** |
+
+**VERDICT: REJECT (both worse).** Terminal class 0 is 36.9% of point targets (well-
+represented), and the production joint prior+threshold rule already handles it BETTER than a
+hard two-stage split — the coordinate-ascent over all 10 classes finds a higher macro-F1 than
+the constrained terminal/spatial decoupling. The lateral/depth blend (sums of the SAME probs)
+just smears discrimination toward marginal modes. **The verified pointId geometry is now
+exhausted in BOTH forms — as a feature (displacement, rejected) and as output structure (this,
+rejected).** Reconfirms the information ceiling. Production point rule unchanged.
+
 ### v5 Idea 3 — adversarial validation — DIAGNOSTIC (explains player-lever saturation) (2026-05-30)
 
 `scripts/adversarial_validation.py`: same next-stroke prefix features for train
