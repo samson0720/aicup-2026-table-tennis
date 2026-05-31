@@ -1,9 +1,11 @@
 {
-  "action_macro_f1_raw": 0.26891932137281066,
-  "point_macro_f1_raw": 0.16274978246671906,
-  "overall_raw": 0.3026308903918241,
-  "action_macro_f1": 0.28797078192996917,
-  "point_macro_f1": 0.18171350607293876,
-  "server_auc": 0.649816244280061,
-  "overall": 0.31783696405717543
+  "action_macro_f1_raw": 0.26680662346671474,
+  "point_macro_f1_raw": 0.166228160098346,
+  "overall_raw": 0.30231601556190546,
+  "action_macro_f1": 0.27928106289132776,
+  "point_macro_f1": 0.18630576659976344,
+  "server_auc": 0.6455105106794057,
+  "overall": 0.3153368339323176,
+  "action_beta": 0.0,
+  "point_beta": 0.4
 }

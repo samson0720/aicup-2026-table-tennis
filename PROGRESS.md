@@ -28,6 +28,20 @@ action even dipped slightly. Cause: the existing `point_cnt_*`/`point_rate_*`/
 trees reconstruct these joints, so the explicit codes are redundant. Reverted on
 `feat/per-target-beta`; preserved here for the record only.
 
+End-to-end final ensemble (full pipeline rebuilt with the features, this branch):
+
+| metric | beta line (0.4247) | pointId line | Δ |
+|---|---:|---:|---:|
+| overall | 0.32314 | 0.32247 | **-0.00067** |
+| point F1 | 0.18796 | 0.18886 | +0.0009 |
+| action F1 | 0.29206 | 0.29006 | -0.0020 |
+| server AUC | 0.65569 | 0.65451 | -0.0012 |
+
+The regenerated submissions (`submission_FINAL_*_perrow.csv` etc.) are committed
+on THIS branch only, so the pointId variant can be uploaded for a public probe.
+Confirmed slightly worse than the 0.4247 line, consistent with the per-base
+result above — do not merge to the main line.
+
 ## 2026-05-30: per-target prior-temperature (beta) + new public best 0.4247437
 
 - Added `beta` to `postprocess.prior_correct` (default 1.0, backward compatible)

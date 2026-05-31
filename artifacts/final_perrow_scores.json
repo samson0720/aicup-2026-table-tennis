@@ -1,8 +1,8 @@
 {
-  "action_macro_f1": 0.29205686074763265,
-  "action_beta": 0.6,
-  "point_macro_f1": 0.1879580863822849,
-  "point_beta": 0.4,
-  "server_auc": 0.6556949190234056,
-  "overall": 0.32314496265664816
+  "action_macro_f1": 0.29005596557024116,
+  "action_beta": 0.5,
+  "point_macro_f1": 0.18886219551542283,
+  "point_beta": 0.6,
+  "server_auc": 0.6545099334161739,
+  "overall": 0.32246925111750036
 }
