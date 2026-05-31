@@ -1,0 +1,18 @@
+{
+  "baseline_model": "shuttle_pilot",
+  "candidate_model": "shuttle_extra",
+  "baseline": {
+    "rows": 8960,
+    "action_macro_f1": 0.26813835421043036,
+    "point_macro_f1": 0.18277788360515018
+  },
+  "candidate": {
+    "rows": 8960,
+    "action_macro_f1": 0.298088552836334,
+    "point_macro_f1": 0.1895048541380584
+  },
+  "delta": {
+    "action_macro_f1": 0.029950198625903646,
+    "point_macro_f1": 0.006726970532908216
+  }
+}

@@ -1,0 +1,308 @@
+{
+  "seeds": [
+    11,
+    22,
+    33,
+    44,
+    55
+  ],
+  "folds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "epochs": 50,
+  "patience": 12,
+  "batch_size": 256,
+  "d_model": 256,
+  "nhead": 4,
+  "layers": 4,
+  "ffn": 768,
+  "dropout": 0.2,
+  "lr": 0.0003,
+  "weight_decay": 0.0001,
+  "warmup_frac": 0.05,
+  "clip": 1.0,
+  "mirror_position_augment": false,
+  "pretrain_transition_epochs": 3,
+  "pretrain_lr": 0.0003,
+  "per_fold_best": {
+    "11_0": {
+      "action_f1": 0.3719735746682588,
+      "point_f1": 0.18593256881625558,
+      "overall": 0.2789530717422572,
+      "best_epoch": 1.0,
+      "last_train_loss": 1.7290238649287122,
+      "pretrain": {
+        "examples": 76380.0,
+        "last_train_loss": 2.3891365966669293
+      }
+    },
+    "11_1": {
+      "action_f1": 0.35567825951711257,
+      "point_f1": 0.18048480299255912,
+      "overall": 0.26808153125483586,
+      "best_epoch": 1.0,
+      "last_train_loss": 1.724530448304846,
+      "pretrain": {
+        "examples": 78174.0,
+        "last_train_loss": 2.4065692635143505
+      }
+    },
+    "11_2": {
+      "action_f1": 0.36938324907276254,
+      "point_f1": 0.1935198294618471,
+      "overall": 0.2814515392673048,
+      "best_epoch": 1.0,
+      "last_train_loss": 1.7550857588648796,
+      "pretrain": {
+        "examples": 78506.0,
+        "last_train_loss": 2.3928293273192662
+      }
+    },
+    "11_3": {
+      "action_f1": 0.36071399032209744,
+      "point_f1": 0.16551084375479422,
+      "overall": 0.26311241703844584,
+      "best_epoch": 1.0,
+      "last_train_loss": 1.7127342401666845,
+      "pretrain": {
+        "examples": 77855.0,
+        "last_train_loss": 2.390432713461704
+      }
+    },
+    "11_4": {
+      "action_f1": 0.29456937062841976,
+      "point_f1": 0.20432975755246469,
+      "overall": 0.24944956409044222,
+      "best_epoch": 8.0,
+      "last_train_loss": 1.4155297330085268,
+      "pretrain": {
+        "examples": 76841.0,
+        "last_train_loss": 2.3961059033276633
+      }
+    },
+    "22_0": {
+      "action_f1": 0.3499666725460228,
+      "point_f1": 0.2003027620293109,
+      "overall": 0.27513471728766686,
+      "best_epoch": 10.0,
+      "last_train_loss": 1.3180496641930113,
+      "pretrain": {
+        "examples": 77043.0,
+        "last_train_loss": 2.3719239789386126
+      }
+    },
+    "22_1": {
+      "action_f1": 0.3707593349789998,
+      "point_f1": 0.1962303743681077,
+      "overall": 0.28349485467355373,
+      "best_epoch": 11.0,
+      "last_train_loss": 1.291296786450325,
+      "pretrain": {
+        "examples": 77435.0,
+        "last_train_loss": 2.411443564758049
+      }
+    },
+    "22_2": {
+      "action_f1": 0.36122046623941073,
+      "point_f1": 0.17010161547339625,
+      "overall": 0.2656610408564035,
+      "best_epoch": 3.0,
+      "last_train_loss": 1.5899571379025776,
+      "pretrain": {
+        "examples": 77419.0,
+        "last_train_loss": 2.387913529235538
+      }
+    },
+    "22_3": {
+      "action_f1": 0.3676306457876088,
+      "point_f1": 0.19424796231615368,
+      "overall": 0.2809393040518812,
+      "best_epoch": 9.0,
+      "last_train_loss": 1.3436697895328205,
+      "pretrain": {
+        "examples": 78694.0,
+        "last_train_loss": 2.387049499270204
+      }
+    },
+    "22_4": {
+      "action_f1": 0.31002527059307083,
+      "point_f1": 0.2011496010219987,
+      "overall": 0.25558743580753474,
+      "best_epoch": 13.0,
+      "last_train_loss": 1.232109932189292,
+      "pretrain": {
+        "examples": 77165.0,
+        "last_train_loss": 2.4101986956122694
+      }
+    },
+    "33_0": {
+      "action_f1": 0.36465770442561213,
+      "point_f1": 0.17993146922644193,
+      "overall": 0.27229458682602703,
+      "best_epoch": 7.0,
+      "last_train_loss": 1.452131560508241,
+      "pretrain": {
+        "examples": 76295.0,
+        "last_train_loss": 2.4092190409185097
+      }
+    },
+    "33_1": {
+      "action_f1": 0.34224783950749976,
+      "point_f1": 0.19227168605246264,
+      "overall": 0.2672597627799812,
+      "best_epoch": 1.0,
+      "last_train_loss": 1.6752762160402663,
+      "pretrain": {
+        "examples": 78506.0,
+        "last_train_loss": 2.3752995997376085
+      }
+    },
+    "33_2": {
+      "action_f1": 0.3705024403993091,
+      "point_f1": 0.1825123194814676,
+      "overall": 0.2765073799403883,
+      "best_epoch": 9.0,
+      "last_train_loss": 1.354886864094024,
+      "pretrain": {
+        "examples": 78467.0,
+        "last_train_loss": 2.3881246018487388
+      }
+    },
+    "33_3": {
+      "action_f1": 0.363125080366361,
+      "point_f1": 0.1907706948462793,
+      "overall": 0.27694788760632016,
+      "best_epoch": 1.0,
+      "last_train_loss": 1.7175315544009209,
+      "pretrain": {
+        "examples": 76917.0,
+        "last_train_loss": 2.4082770997107623
+      }
+    },
+    "33_4": {
+      "action_f1": 0.3348375036450736,
+      "point_f1": 0.2076055642375556,
+      "overall": 0.2712215339413146,
+      "best_epoch": 2.0,
+      "last_train_loss": 1.6614269702992541,
+      "pretrain": {
+        "examples": 77571.0,
+        "last_train_loss": 2.3895345879228493
+      }
+    },
+    "44_0": {
+      "action_f1": 0.3615584936030657,
+      "point_f1": 0.1748310178430071,
+      "overall": 0.2681947557230364,
+      "best_epoch": 1.0,
+      "last_train_loss": 1.7107246201089088,
+      "pretrain": {
+        "examples": 76190.0,
+        "last_train_loss": 2.390703366906851
+      }
+    },
+    "44_1": {
+      "action_f1": 0.35531831498852384,
+      "point_f1": 0.17609149570298083,
+      "overall": 0.2657049053457523,
+      "best_epoch": 7.0,
+      "last_train_loss": 1.431431252905663,
+      "pretrain": {
+        "examples": 78241.0,
+        "last_train_loss": 2.3999888265834137
+      }
+    },
+    "44_2": {
+      "action_f1": 0.3918104647217119,
+      "point_f1": 0.18368024033806693,
+      "overall": 0.2877453525298894,
+      "best_epoch": 3.0,
+      "last_train_loss": 1.5896494261761929,
+      "pretrain": {
+        "examples": 77578.0,
+        "last_train_loss": 2.3871833815386423
+      }
+    },
+    "44_3": {
+      "action_f1": 0.37706279648068136,
+      "point_f1": 0.1981259213282048,
+      "overall": 0.28759435890444307,
+      "best_epoch": 1.0,
+      "last_train_loss": 1.6983239726817354,
+      "pretrain": {
+        "examples": 78533.0,
+        "last_train_loss": 2.413900325663315
+      }
+    },
+    "44_4": {
+      "action_f1": 0.3328889489184938,
+      "point_f1": 0.17667256535559467,
+      "overall": 0.25478075713704423,
+      "best_epoch": 4.0,
+      "last_train_loss": 1.5486674557129543,
+      "pretrain": {
+        "examples": 77214.0,
+        "last_train_loss": 2.37258895106663
+      }
+    },
+    "55_0": {
+      "action_f1": 0.39236249218006053,
+      "point_f1": 0.1845609670516467,
+      "overall": 0.2884617296158536,
+      "best_epoch": 3.0,
+      "last_train_loss": 1.5809405967593193,
+      "pretrain": {
+        "examples": 79473.0,
+        "last_train_loss": 2.376112996190307
+      }
+    },
+    "55_1": {
+      "action_f1": 0.3155308353465135,
+      "point_f1": 0.18090649331970227,
+      "overall": 0.24821866433310788,
+      "best_epoch": 5.0,
+      "last_train_loss": 1.5102894838820113,
+      "pretrain": {
+        "examples": 77031.0,
+        "last_train_loss": 2.4024795376977255
+      }
+    },
+    "55_2": {
+      "action_f1": 0.3391765660068797,
+      "point_f1": 0.1849281223861315,
+      "overall": 0.2620523441965056,
+      "best_epoch": 2.0,
+      "last_train_loss": 1.6043038165315668,
+      "pretrain": {
+        "examples": 77052.0,
+        "last_train_loss": 2.3654282045522796
+      }
+    },
+    "55_3": {
+      "action_f1": 0.34193670240757673,
+      "point_f1": 0.17487071723628184,
+      "overall": 0.2584037098219293,
+      "best_epoch": 1.0,
+      "last_train_loss": 1.6904473735931071,
+      "pretrain": {
+        "examples": 76757.0,
+        "last_train_loss": 2.399222718079885
+      }
+    },
+    "55_4": {
+      "action_f1": 0.3207288902427964,
+      "point_f1": 0.20528937227870675,
+      "overall": 0.26300913126075154,
+      "best_epoch": 2.0,
+      "last_train_loss": 1.6320222058194749,
+      "pretrain": {
+        "examples": 77443.0,
+        "last_train_loss": 2.3995086218264237
+      }
+    }
+  }
+}

@@ -5,6 +5,103 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 ## v5 — final-rank maximization (2026-05-30, in progress)
 
+### v5 — xgb_extra (`XGBoost + another_data`) — SHIPPED +0.00251 (2026-06-01) ⭐
+
+`scripts/produce_xgb_extra_oof.py` mirrors produce_extra_lgbm_oof but uses XGBoost GPU
+(device=cuda, 600 iterations, max_depth=6). Regular XGBoost (no extra) was −0.00113 on 12-base
+stack — the another_data is what makes it useful. All 3 targets improve:
+
+| config | action | point | server | overall | lift |
+|---|---:|---:|---:|---:|---:|
+| 12-base production | 0.33747 | 0.22073 | 0.66324 | **0.355928** | — |
+| + xgb_extra | 0.34063 | 0.22271 | 0.66549 | **0.358436** | **+0.00251** (1.49× floor) |
+
+**SHIPPED.** BASES updated to 13-base (action/point) + 10-base (server). Honest overall: **0.358436**.
+Beta sweep on 12-base: action best=0.6 (already at optimal), point best=0.4 (+0.00037 incremental, sub-floor). No beta update needed.
+
+Also confirmed: regular xgb (no extra) = −0.00113 on 12-base stack (rejected).
+
+### v5 — cat_extra + shuttle_extra — SHIPPED +0.00173 combined (2026-06-01)
+
+CatBoost + another_data (`cat_extra`, `scripts/produce_cat_extra_oof.py`, GPU) and
+ShuttleNet + another_data pretraining (`shuttle_extra`, `scripts/produce_shuttle_extra_oof.py`,
+`train_shuttle.py --pretrain-extra-data`). Individually both sub-floor:
+- cat_extra alone: +0.00142 (0.85× floor) — mainly server +0.00391 AUC
+- shuttle_extra alone: +0.00038 (0.23× floor) — mainly point +0.00144 F1
+- Combined: **+0.00173 (1.03× floor)** → complementary (different targets)
+
+**SHIPPED.** BASES updated to 12-base (action/point) + 9-base (server):
+```
+action/point: [..., markovpt, lgbm15_extra, lgbm31_extra, shuttle_extra, cat_extra]
+server: [..., lgbm15_extra, lgbm31_extra, cat_extra]
+```
+Honest overall: **0.354200 → 0.355928** (+0.001728). Leakmax rebuilt.
+Note: marginally above floor (1.03×); possible noise. Revert = remove shuttle_extra/cat_extra from BASES.
+
+Also tested (all sub-floor, rejected): cat_bal (−0.00102), cat_os (−0.00047),
+XGBoost alone (+0.00113), betas 0.7/0.6 alone (+0.00112), XGBoost+betas combined (−0.00002).
+
+Beta re-sweep on 10-base stack: action best=0.7 (+0.00232 from 1.0), point best=0.6 (+0.00827 from 1.0).
+Incremental from current 0.6/0.5 → 0.7/0.6 = +0.00112 (sub-floor). Not shipped; re-sweep needed
+on 12-base stack if further changes.
+
+### v5 — `another_data` extra-train LGBM (`lgbm15_extra`, `lgbm31_extra`) — SHIPPED +0.00583 (2026-06-01) ⭐
+
+`another_data/train.csv` contains real labeled matches NOT in the official competition set.
+`scripts/produce_extra_lgbm_oof.py` appends these rows to each fold's training set (leakage-free:
+extra data comes from entirely disjoint matches; validation set is unchanged). Generates
+`lgbm15_extra` + `lgbm31_extra` OOF (74975, full CV) + test parquets.
+
+Ensemble A/B gate against production baseline (markovpt + no-shuttle, beta 0.6/0.5):
+
+| config | action | point | server | overall | lift |
+|---|---:|---:|---:|---:|---:|
+| production 9-base (markovpt, no shuttle) | 0.32835 | 0.21424 | 0.65667 | **0.348365** | — |
+| + lgbm15_extra + lgbm31_extra | 0.33708 | 0.21875 | 0.65933 | **0.354200** | **+0.00583** (floor 0.00168, 3.5×) |
+
+All three targets improve. **SHIPPED.** `build_final_perrow.py:BASES` updated to 10-base config:
+`["lgbm15","lgbm31","markov","phase_lgbm","chain_{tgt}","cat","markovp","markovpt","lgbm15_extra","lgbm31_extra"]`.
+Shuttle removed from BASES (consistently sub-floor or negative on public; was already dropped via
+env var). markovpt now canonical in BASES (no longer env-var only).
+Production honest overall **0.354200** (`submission_FINAL_safe_perrow.csv`).
+Leakmax rebuilt (`submission_FINAL_leakmax.csv`, 1236 point overrides).
+
+Note: `cat_bal` (−0.00102) and `cat_os` (−0.00047) also tested; both rejected (net negative).
+
+Also: beta re-sweep on markovpt+no-shuttle 9-base stack found action→0.8 (+0.00224),
+point→0.7 (+0.00095), combined lift +0.00128 — sub-floor. Beta sweep on the new 10-base
+stack in progress (see below).
+
+### v5 — test-prefix-as-training-data (`lgbm15_testpfx`, `lgbm31_testpfx`) — REJECTED AT ENSEMBLE GATE (2026-05-31)
+
+Idea: add `test_new.csv` prefix stroke pairs as extra training samples for LGBM (3,823 pairs;
+labels are observed prefix next-strokes, not hidden cut targets). Standalone LGBM pilot over
+5 seeds × 5 folds showed `+0.00519` overall (action +0.0129, point +0.0038, server −0.0074).
+Full 25-fold OOFs generated for `lgbm15_testpfx` and `lgbm31_testpfx` (`scripts/produce_testpfx_lgbm_oof.py`).
+
+Ensemble A/B gate against the correct production baseline (markovpt + drop-shuttle):
+
+| config | action | point | server | overall | lift |
+|---|---:|---:|---:|---:|---:|
+| production (markovpt + no shuttle) | 0.32835 | 0.21424 | 0.65667 | **0.348365** | — |
+| + lgbm15_testpfx + lgbm31_testpfx | 0.32633 | 0.21444 | 0.65674 | **0.347655** | **−0.000710** |
+
+**VERDICT: REJECT.** Net negative (action −0.00202, point +0.00020). Standalone lift is real
+but the testpfx information is already captured by the existing stack (markovpt adapts from
+the same test-prefix transitions; cat/lgbm already have player+sequence features). Adding
+testpfx as extra bases causes action regression via LR stacker collinearity. OOF/test parquets
+kept for reproducibility (NOT in BASES). `scripts/produce_testpfx_lgbm_oof.py` kept.
+
+NOTE: during the A/B run, `artifacts/final_perrow_scores.json` was clobbered (the write
+happens before the SCORE_ONLY check in `build_final_perrow.py`). Honest production score
+re-confirmed: **0.348365** (markovpt + no-shuttle + beta 0.6/0.5); meta PKL files intact.
+
+### v5 — transductive player-transition adaptation (`markovpt`) — CONFIRMED PUBLIC +0.0169 (2026-05-31) ⭐⭐
+
+**PUBLIC CONFIRMED: 0.4309548 → 0.4478837 (+0.0169). New team best.**
+File: `artifacts/submission_FINAL_leakmax_noshuttle_markovpt.csv`
+Honest +0.01867 → public +0.0169: consistent direction, real signal.
+
 ### v5 — transductive player-transition adaptation (`markovpt`) — SHIPPED CANDIDATE +0.01867 (2026-05-31) ⭐
 
 New legal information lever: `test_new.csv` exposes 5,668 prefix strokes for all 71

@@ -140,8 +140,15 @@ def _pretrain_transitions(
     rally_uids: list[int],
     fold: int,
     device: torch.device,
+    extra_df: "pd.DataFrame | None" = None,
 ) -> dict[str, float]:
-    ds = RallyTransitionDataset(train, rally_uids, fold)
+    if extra_df is not None and not extra_df.empty:
+        combined = pd.concat([train, extra_df], ignore_index=True)
+        extra_uids = extra_df["rally_uid"].unique().tolist()
+        combined_uids = list(rally_uids) + extra_uids
+        ds = RallyTransitionDataset(combined, combined_uids, fold)
+    else:
+        ds = RallyTransitionDataset(train, rally_uids, fold)
     loader = DataLoader(
         ds,
         batch_size=args.batch_size,
@@ -236,7 +243,8 @@ def run_one_fold(
     w_point = _class_weights(_labels(ds, train_idx, "y_point"), 10, device)
     if args.pretrain_transition_epochs:
         rally_uids = [ds._rallies[i] for i in train_idx]
-        pretrain_log = _pretrain_transitions(args, model, train, rally_uids, fold, device)
+        pretrain_log = _pretrain_transitions(args, model, train, rally_uids, fold, device,
+                                              extra_df=getattr(args, "pretrain_extra_df", None))
     else:
         pretrain_log = None
 
@@ -401,7 +409,8 @@ def run_predict_test(
     w_action = _class_weights(_labels(ds, all_idx, "y_action"), 19, device)
     w_point = _class_weights(_labels(ds, all_idx, "y_point"), 10, device)
     if args.pretrain_transition_epochs:
-        _pretrain_transitions(args, model, train, ds._rallies, 0, device)
+        _pretrain_transitions(args, model, train, ds._rallies, 0, device,
+                              extra_df=getattr(args, "pretrain_extra_df", None))
 
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     total_steps = args.epochs * max(1, len(train_loader))
@@ -447,6 +456,23 @@ def run(args: argparse.Namespace) -> None:
     data_dir = next(Path.cwd().glob("AI CUP*"))
     train = pd.read_csv(data_dir / "train.csv")
     splits = pd.read_parquet("artifacts/cv_splits.parquet")
+
+    # Load another_data for pretraining augmentation if requested
+    if getattr(args, "pretrain_extra_data", None):
+        from scripts.produce_extra_lgbm_oof import load_extra_pairs
+        official_matches = set(train["match"].astype(str).unique())
+        extra_raw = pd.read_csv(args.pretrain_extra_data)
+        extra_raw = extra_raw.rename(columns={"strickNumber": "strikeNumber", "strickId": "strikeId"})
+        extra_raw = extra_raw[extra_raw["let"] == 0].copy()
+        extra_raw = extra_raw[~extra_raw["match"].astype(str).isin(official_matches)].copy()
+        extra_raw = extra_raw.drop(columns=[c for c in ("serveId", "serveNumber", "let") if c in extra_raw.columns])
+        sgp = extra_raw.groupby("rally_uid")["serverGetPoint"].first()
+        extra_raw["serverGetPoint"] = extra_raw["rally_uid"].map(sgp)
+        args.pretrain_extra_df = extra_raw
+        print(f"[pretrain-extra] loaded {extra_raw['match'].nunique()} extra matches, "
+              f"{extra_raw['rally_uid'].nunique()} rallies for pretraining", flush=True)
+    else:
+        args.pretrain_extra_df = None
 
     if args.predict_test:
         test = pd.read_csv(data_dir / "test_new.csv")
@@ -515,6 +541,8 @@ def main() -> None:
     parser.add_argument("--pretrain-transition-epochs", type=int, default=0,
                         help="pretrain on every fold-train prefix->next-stroke transition")
     parser.add_argument("--pretrain-lr", type=float, default=3e-4)
+    parser.add_argument("--pretrain-extra-data", default=None,
+                        help="path to extra CSV (another_data/train.csv) to augment pretraining transitions")
     parser.add_argument("--cpu", action="store_true")
     parser.add_argument("--predict-test", action="store_true",
                         help="train one full-train model and write single-cut test predictions")
