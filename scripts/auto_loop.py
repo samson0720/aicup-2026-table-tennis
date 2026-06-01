@@ -43,7 +43,11 @@ def get_current_score() -> float:
 
 
 def run_gate(model_name: str, targets: list[str]) -> float:
-    """Run SCORE_ONLY gate and return overall score."""
+    """Run SCORE_ONLY gate and return overall score. Restores scores.json after."""
+    # Save scores.json before gate (gate contaminates it with the tested config)
+    scores_path = CWD / "artifacts" / "final_perrow_scores.json"
+    saved_scores = scores_path.read_text() if scores_path.exists() else None
+
     env = os.environ.copy()
     for t in targets:
         env[f"AICUP_EXTRA_{t.upper()}_BASE"] = model_name
@@ -52,6 +56,11 @@ def run_gate(model_name: str, targets: list[str]) -> float:
         ["conda", "run", "-n", "aicup-tt", "python3", "-m", "scripts.build_final_perrow"],
         capture_output=True, text=True, env=env, cwd=CWD
     )
+
+    # Restore original scores.json so production score stays clean
+    if saved_scores is not None:
+        scores_path.write_text(saved_scores)
+
     for line in result.stdout.splitlines():
         if '"overall"' in line:
             return float(line.split(":")[1].strip().rstrip(","))
@@ -270,9 +279,15 @@ def main() -> None:
                 continue
             if all_oof_exist(name, exp["targets"]):
                 continue
-            # Check dependencies are shipped
-            if any(d not in shipped for d in exp["depends_on"]):
-                log(f"  Skipping {name}: waiting for deps {exp['depends_on']}")
+            # Check dependencies: OOF must exist (ship OR reject with OOF is fine)
+            def _dep_ready(d: str) -> bool:
+                dep_exp = next((e for e in ALL_EXPERIMENTS if e["name"] == d), None)
+                if dep_exp is None:
+                    return False
+                return all_oof_exist(d, dep_exp["targets"])
+            unready = [d for d in exp["depends_on"] if not _dep_ready(d)]
+            if unready:
+                log(f"  Skipping {name}: waiting for deps OOF {unready}")
                 continue
             # Check if script exists
             script_path = CWD / "scripts" / (exp["module"].replace("scripts.", "") + ".py")
@@ -281,7 +296,7 @@ def main() -> None:
                 continue
             # Start job
             if exp["gpu"]:
-                if gpu_running >= 2:
+                if gpu_running >= 1:
                     log(f"  GPU busy ({gpu_running} running), deferring {name}")
                     continue
                 p = start_gpu_job(exp["module"])
