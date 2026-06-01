@@ -5,6 +5,20 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 ## v5 — final-rank maximization (2026-05-30, in progress)
 
+### v5 — phase_xgb8_extra (max_depth=8) — SHIPPED +0.00571 (2026-06-01) ⭐⭐⭐
+
+`scripts/produce_phase_xgb8_extra_oof.py`: phase-specific XGBoost with max_depth=8
+(vs max_depth=6 in phase_xgb_extra) + another_data. Deeper trees capture more complex
+interaction patterns per game phase.
+
+| config | action | point | server | overall | lift |
+|---|---:|---:|---:|---:|---:|
+| 16-base production | 0.34511 | 0.23233 | 0.66680 | **0.364337** | — |
+| + phase_xgb8_extra | 0.34969 | 0.23933 | 0.67221 | **0.370049** | **+0.00571 (3.40× floor)** |
+
+All three targets show massive improvement. **SHIPPED.** BASES updated to 17-base (action/point)
++ 14-base (server). Honest overall: **0.364337 → 0.370049**. Leakmax rebuilt.
+
 ### v5 — phase_xgb_extra + lgbm63_extra — SHIPPED +0.00369 (2026-06-01) ⭐⭐
 
 `scripts/produce_phase_xgb_extra_oof.py`: phase-specific XGBoost GPU + another_data.
