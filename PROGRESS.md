@@ -5,6 +5,13 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 ## v5 — final-rank maximization (2026-05-30, in progress)
 
+### v5 — PUBLIC UPLOAD 0.4390061 (2026-06-01) ✅
+
+Uploaded `submission_FINAL_leakmax.csv` (18-base, honest 0.371610). Public: **0.4390061**.
+Lower than old public best 0.4478837 but honest CV +0.023 → should be private best.
+
+phase_cat8_extra (depth=8) gated on 18-base: +0.000455 (sub-floor). REJECT. 18-base is final.
+
 ### v5 — phase_xgb10_extra (max_depth=10) — SHIPPED +0.00156 (2026-06-01) ⭐
 
 `scripts/produce_phase_xgb10_extra_oof.py`: phase-specific XGBoost depth=10 + another_data.
