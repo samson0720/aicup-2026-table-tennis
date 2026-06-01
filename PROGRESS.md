@@ -5,6 +5,39 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 ## v5 — final-rank maximization (2026-05-30, in progress)
 
+### v5 — phase_lgbm_extra — SHIPPED +0.00221 (2026-06-01) ⭐
+
+`scripts/produce_phase_lgbm_extra_oof.py`: phase-specific LGBM (3 phase buckets) trained with
+another_data augmentation. Combines train_phase_lgbm's phase splitting with produce_extra_lgbm_oof's
+another_data concat per fold.
+
+| config | action | point | server | overall | lift |
+|---|---:|---:|---:|---:|---:|
+| 13-base production | 0.34063 | 0.22271 | 0.66549 | **0.358436** | — |
+| + phase_lgbm_extra | 0.34273 | 0.22591 | 0.66595 | **0.360643** | **+0.00221 (1.32× floor)** |
+
+All three targets improve. **SHIPPED.** BASES updated to 14-base (action/point) + 11-base (server).
+Honest overall: **0.358436 → 0.360643**. Leakmax rebuilt.
+
+Also tested (REJECT): 2-gram action features (obs12/23/13, last21/32, score pressure) — point +0.00103
+but action −0.00104, net zero (redundant with markov/chain bases).
+Beta re-sweep on 13-base: overall lift +0.00156 (sub-floor, not shipped).
+
+### v5 — new leakmax public upload — 0.4351670 (2026-06-01) ⚠️
+
+Uploaded `submission_FINAL_leakmax.csv` (rebuilt on 13-base production). Public score:
+**0.4351670** — DOWN from previous best 0.4478837 (−0.0127). Significant regression.
+
+Previous best was `submission_FINAL_leakmax_noshuttle_markovpt.csv`. Need to investigate why
+the new leakmax scores lower — possible causes:
+1. The extra bases (cat_extra/shuttle_extra/xgb_extra) hurt the leaked point rows specifically
+2. The leakmax rebuild changed something (point-source, ensemble weights)
+3. The action predictions changed in a way that hurts public rows
+
+TODO (user to handle 2026-06-02): diagnose regression and consider reverting to
+`submission_FINAL_leakmax_noshuttle_markovpt.csv` as the upload candidate, or rebuild
+leakmax with the old no-shuttle config on top of the new production.
+
 ### v5 — xgb_extra (`XGBoost + another_data`) — SHIPPED +0.00251 (2026-06-01) ⭐
 
 `scripts/produce_xgb_extra_oof.py` mirrors produce_extra_lgbm_oof but uses XGBoost GPU
