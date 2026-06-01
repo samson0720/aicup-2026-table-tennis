@@ -5,6 +5,24 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 ## v5 — final-rank maximization (2026-05-30, in progress)
 
+### v5 — phase_xgb_extra + lgbm63_extra — SHIPPED +0.00369 (2026-06-01) ⭐⭐
+
+`scripts/produce_phase_xgb_extra_oof.py`: phase-specific XGBoost GPU + another_data.
+`scripts/produce_lgbm63_extra_oof.py`: LGBM with 63 leaves + another_data.
+
+| config | action | point | server | overall | lift |
+|---|---:|---:|---:|---:|---:|
+| 14-base production | 0.34273 | 0.22591 | 0.66595 | **0.360643** | — |
+| + phase_xgb_extra alone | 0.34453 | 0.23013 | 0.66670 | **0.363204** | +0.00256 |
+| + both (phase_xgb+lgbm63) | 0.34511 | 0.23233 | 0.66680 | **0.364337** | **+0.00369 (2.20× floor)** |
+
+point is the main driver (+0.00642 total from 14-base). **SHIPPED.** BASES updated to 16-base
+(action/point) + 13-base (server). Honest overall: **0.360643 → 0.364337**.
+Leakmax rebuilt.
+
+Also tested (REJECT): phase_cat_extra (+0.00046), lgbm_extra_hi/300iter (+0.00027),
+beta re-sweep on 14-base (+0.00044 incremental, sub-floor).
+
 ### v5 — phase_lgbm_extra — SHIPPED +0.00221 (2026-06-01) ⭐
 
 `scripts/produce_phase_lgbm_extra_oof.py`: phase-specific LGBM (3 phase buckets) trained with
