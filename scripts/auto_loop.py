@@ -229,9 +229,17 @@ def main() -> None:
             shipped.add(exp["name"])
             log(f"Already in production: {exp['name']}")
 
-    # Add already-running GPU jobs as "running" with PID=None (monitor by file)
-    for name in ["phase_xgb12_extra", "phase_xgb8_900_extra"]:
-        if not all_oof_exist(name, ["action", "point", "server"]):
+    # Detect already-running jobs by checking ps (any experiment without OOF)
+    import subprocess as _sp
+    _ps = _sp.run(["ps", "aux"], capture_output=True, text=True).stdout
+    for exp in ALL_EXPERIMENTS:
+        name = exp["name"]
+        if name in shipped or name in rejected:
+            continue
+        if all_oof_exist(name, exp["targets"]):
+            continue
+        module_suffix = exp["module"].replace("scripts.", "")
+        if module_suffix in _ps:
             running[name] = None
             log(f"Detecting existing job: {name}")
 
@@ -294,7 +302,11 @@ def main() -> None:
             if not script_path.exists():
                 log(f"  Skipping {name}: script {script_path} not found")
                 continue
-            # Start job
+            # Start job (recompute counts to avoid double-starting in same iteration)
+            gpu_running = sum(1 for n, p in running.items() if p is None or (p is not None and p.poll() is None)
+                              for e in ALL_EXPERIMENTS if e["name"] == n and e["gpu"])
+            cpu_running = sum(1 for n, p in running.items() if p is None or (p is not None and p.poll() is None)
+                              for e in ALL_EXPERIMENTS if e["name"] == n and not e["gpu"])
             if exp["gpu"]:
                 if gpu_running >= 1:
                     log(f"  GPU busy ({gpu_running} running), deferring {name}")
