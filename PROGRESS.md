@@ -5,6 +5,20 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 ## v5 — final-rank maximization (2026-05-30, in progress)
 
+### v5 — session 2026-06-02 experiments (in progress)
+
+**Rejected this session (all vs 18-base 0.371610):**
+- MLP meta-stacker: −0.014221 (LR is optimal for calibrated probability inputs)
+- markov_extra (+another_data counts): −0.000012 (markov counts already saturated)
+- phase_xgb12_extra (depth=12): running on 3090 (bug fixed, re-running)
+- phase_xgb8_900_extra (900 iter): queued for GPU after xgb12
+
+**Key insight from stacker weight analysis:**
+- markovpt dominates (action 0.77, point 0.90)
+- chain_server has very high weight (1.19) → augmenting could help
+- phase_xgb8_extra surprisingly low weight (0.12) for server despite big gate gain
+- lgbm31_extra server weight ≈ 0 (0.002) — essentially unused for server
+
 ### v5 — PUBLIC UPLOAD 0.4390061 (2026-06-01) ✅
 
 Uploaded `submission_FINAL_leakmax.csv` (18-base, honest 0.371610). Public: **0.4390061**.
