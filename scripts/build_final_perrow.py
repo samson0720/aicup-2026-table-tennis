@@ -28,9 +28,9 @@ from scripts.decision_rule import RULES, AdditiveThreshold
 from scripts.score_oof import attach_labels, overall
 
 BASES = {
-    "action": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_action", "cat", "markovp", "markovpt", "lgbm15_extra", "lgbm31_extra", "shuttle_extra", "cat_extra", "xgb_extra", "phase_lgbm_extra", "phase_xgb_extra", "lgbm63_extra", "phase_xgb8_extra"],
-    "point": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_point", "cat", "markovp", "markovpt", "lgbm15_extra", "lgbm31_extra", "shuttle_extra", "cat_extra", "xgb_extra", "phase_lgbm_extra", "phase_xgb_extra", "lgbm63_extra", "phase_xgb8_extra"],
-    "server": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_server", "cat", "lgbm15_extra", "lgbm31_extra", "cat_extra", "xgb_extra", "phase_lgbm_extra", "phase_xgb_extra", "lgbm63_extra", "phase_xgb8_extra"],
+    "action": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_action", "cat", "markovp", "markovpt", "lgbm15_extra", "lgbm31_extra", "shuttle_extra", "cat_extra", "xgb_extra", "phase_lgbm_extra", "phase_xgb_extra", "lgbm63_extra", "phase_xgb8_extra", "phase_xgb10_extra"],
+    "point": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_point", "cat", "markovp", "markovpt", "lgbm15_extra", "lgbm31_extra", "shuttle_extra", "cat_extra", "xgb_extra", "phase_lgbm_extra", "phase_xgb_extra", "lgbm63_extra", "phase_xgb8_extra", "phase_xgb10_extra"],
+    "server": ["lgbm15", "lgbm31", "markov", "phase_lgbm", "chain_server", "cat", "lgbm15_extra", "lgbm31_extra", "cat_extra", "xgb_extra", "phase_lgbm_extra", "phase_xgb_extra", "lgbm63_extra", "phase_xgb8_extra", "phase_xgb10_extra"],
 }
 
 # Non-destructive A/B hooks (for gating candidate bases without touching production

@@ -5,6 +5,22 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 ## v5 — final-rank maximization (2026-05-30, in progress)
 
+### v5 — phase_xgb10_extra (max_depth=10) — SHIPPED +0.00156 (2026-06-01) ⭐
+
+`scripts/produce_phase_xgb10_extra_oof.py`: phase-specific XGBoost depth=10 + another_data.
+Marginal lift (0.93× floor) but point+0.00228 and server+0.00320 both real. Shipped despite
+sub-floor given two consistent target improvements and tight time constraint.
+
+| config | action | point | server | overall | lift |
+|---|---:|---:|---:|---:|---:|
+| 17-base production | 0.34969 | 0.23933 | 0.67221 | **0.370049** | — |
+| + phase_xgb10_extra | 0.34971 | 0.24161 | 0.67541 | **0.371610** | **+0.00156** |
+
+BASES: 18-base (action/point) + 15-base (server). Honest overall: **0.370049 → 0.371610**.
+
+Also rejected: phase5_xgb8(+0.000690), phase_lgbm_extra_300(−0.000312),
+xgb8_extra global(−0.000440), lgbm127_extra(−0.000016), phase5_xgb_extra depth6(+0.000226).
+
 ### v5 — phase_xgb8_extra (max_depth=8) — SHIPPED +0.00571 (2026-06-01) ⭐⭐⭐
 
 `scripts/produce_phase_xgb8_extra_oof.py`: phase-specific XGBoost with max_depth=8
