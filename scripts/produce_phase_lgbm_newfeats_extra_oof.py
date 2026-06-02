@@ -181,7 +181,7 @@ def main() -> None:
     full_df_train = pd.concat([full_df_train, extra_pairs], ignore_index=True)
     full_df_train = add_new_features(full_df_train)
 
-    test_raw = build_test_dataset(dd)
+    test_raw = build_test_dataset(pd.read_csv(dd / "test_new.csv")).sort_values("rally_uid").reset_index(drop=True)
     test_raw = add_new_features(test_raw)
 
     rally_test = test_raw["rally_uid"].to_numpy()

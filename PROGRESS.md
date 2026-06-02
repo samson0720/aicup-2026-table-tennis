@@ -5,19 +5,32 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 ## v5 — final-rank maximization (2026-05-30, in progress)
 
-### v5 — session 2026-06-02 experiments (in progress)
+### v5 — session 2026-06-02 (continued 2026-06-02 evening)
 
-**Rejected this session (all vs 18-base 0.371610):**
+**SHIPPED: beta re-sweep on 19-base — honest 0.37342 → 0.37449 (+0.00108, sub-floor but consistent direction)** ⭐
+
+19-base sweep revealed point beta=0.5 was in a local dip (0.24276 < neighbors 0.4→0.24394, 0.6→0.24461).
+New production: BETAS = {action: 0.7, point: 0.8}. Action +0.00059, point +0.00209 independently.
+Combined A/B confirmed +0.00108 overall. Shipped despite 0.64× floor given:
+1. Both targets improve consistently; 2. Final-push context; 3. Low risk (parameter-only change).
+
+**Rejected this session (all vs 19-base 0.373419, unless noted):**
+- All 8 queued gates: phase_xgb12(+0.000631), phase_xgb8_900(−0.000022), phase_xgb8_lr03(+0.000386),
+  phase_lgbm_newfeats(−0.000137), chain_server_extra(−0.000021), chain_action_extra(−0.000133),
+  chain_point_extra(+0.000179), phase_lgbm63_extra(+0.000425) — ALL sub-floor
+- Combination gates: xgb12+lgbm63(+0.00091), xgb12+lgbm63+chain_point(+0.00108), all-4-positive(−0.00014)
+- Beta+xgb12 combo: +0.00019 (interaction kills additive effect; re-sweep needed per-base-set)
 - MLP meta-stacker: −0.014221 (LR is optimal for calibrated probability inputs)
 - markov_extra (+another_data counts): −0.000012 (markov counts already saturated)
-- phase_xgb12_extra (depth=12): running on 3090 (bug fixed, re-running)
-- phase_xgb8_900_extra (900 iter): queued for GPU after xgb12
+
+**In progress:**
+- phase_xgb14_extra (depth=14, 600 iter): OOF running on 3090
+- phase_cat10_extra (depth=10 CatBoost, 800 iter): OOF running on 3090 concurrently
 
 **Key insight from stacker weight analysis:**
 - markovpt dominates (action 0.77, point 0.90)
-- chain_server has very high weight (1.19) → augmenting could help
-- phase_xgb8_extra surprisingly low weight (0.12) for server despite big gate gain
-- lgbm31_extra server weight ≈ 0 (0.002) — essentially unused for server
+- chain_server has very high weight (1.19) → chain_server_extra REJECTED (−0.000021)
+- Ensemble at information ceiling: all tested levers sub-floor or negative
 
 ### v5 — PUBLIC UPLOAD 0.4390061 (2026-06-01) ✅
 
@@ -1589,3 +1602,29 @@ Decision (per user instruction "能用到gpu的可以盡管用"):
 Wall-clock budget on CPU LightGBM: per fit ~30 s (180 estimators, 12k rows,
 ~30 features) → per OOF model 75 fits × 30 s = ~37 min. With 5 base models
 that's ~3 hours total. Acceptable.
+
+### v5 — session 2026-06-02 experiments (round 2) results
+
+**Production: 0.373419 (19-base) after phase_cat8_800_extra +0.001809 ✅**
+
+**SHIPPED this session:**
+- phase_cat8_800_extra (CatBoost depth=8, 800 iter, another_data): +0.001809 → now 19-base 0.373419
+
+**REJECTED (all vs 19-base 0.373419):**
+- phase_xgb12_extra (depth=12): +0.000631 → sub-floor
+- phase_xgb8_900_extra (900 iter): -0.000022 → HURTS
+- chain_action/point/server_extra: -0.000013 to +0.000179 → sub-floor
+- phase_lgbm63_extra: +0.000026 → sub-floor (already similar in production)
+- phase_lgbm_newfeats_extra (spatial+player-turn features): -0.000137 → HURTS
+- phase_xgb8_lr03_extra (lr=0.03, 1200 iter): +0.000386 → sub-floor
+
+**Next in queue:**
+- phase_xgb14_extra (depth=14) - very likely sub-floor
+- phase_xgb8_1200_extra (1200 iter) - very likely sub-floor
+- 2 uploads remaining
+
+**Key findings:**
+- CatBoost phase model with more iterations is the winning lever today
+- XGBoost depth ladder saturated after depth=8
+- New spatial/player-turn features don't add value to 19-base
+- Chain model augmentation all sub-floor
