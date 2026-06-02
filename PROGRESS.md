@@ -7,6 +7,21 @@ Source-of-truth for the next agent: read this BEFORE touching code.
 
 ### v5 — session 2026-06-02 (continued 2026-06-02 evening)
 
+**SHIPPED: extratrees_extra — 20-base honest 0.37449 → 0.38041 (+0.00592, 3.52× floor)** ⭐⭐⭐
+
+`scripts/produce_extratrees_extra_oof.py`: ExtraTreesClassifier (n=300, min_samples_leaf=5, balanced_subsample)
++ another_data augmentation. Genuinely different algorithm (random threshold bagging vs GBDT boosting)
+provides massive diversity to the 19-GBDT ensemble. All three targets improve:
+
+| config | action | point | server | overall | lift |
+|---|---:|---:|---:|---:|---:|
+| 19-base production | 0.35255 | 0.24485 | 0.67767 | **0.37449** | — |
+| + extratrees_extra | 0.35711 | 0.25158 | 0.68468 | **0.38041** | **+0.00592 (3.52× floor)** |
+
+BASES: 20-base (action/point) + 17-base (server). Honest overall: **0.37449 → 0.38041**.
+Key insight: ExtraTrees decorrelates from all GBDT bases via random thresholds + full tree growth.
+Pilot (seed11×folds0-2) showed standalone 0.297 but ensemble contribution was 3.52× floor.
+
 **SHIPPED: beta re-sweep on 19-base — honest 0.37342 → 0.37449 (+0.00108, sub-floor but consistent direction)** ⭐
 
 19-base sweep revealed point beta=0.5 was in a local dip (0.24276 < neighbors 0.4→0.24394, 0.6→0.24461).
