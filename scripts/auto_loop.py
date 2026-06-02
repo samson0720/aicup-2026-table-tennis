@@ -162,7 +162,23 @@ ALL_EXPERIMENTS = [
         "targets": ["point"],
         "depends_on": ["chain_action_extra"],
     },
-    # XGBoost depth ladder continuation
+    # NEW DIRECTION: Phase LGBM with spatial/player-turn features (CPU)
+    {
+        "name": "phase_lgbm_newfeats_extra",
+        "module": "scripts.produce_phase_lgbm_newfeats_extra_oof",
+        "gpu": False,
+        "targets": ["action", "point", "server"],
+        "depends_on": [],
+    },
+    # NEW DIRECTION: XGBoost lr=0.03 (different optimization path)
+    {
+        "name": "phase_xgb8_lr03_extra",
+        "module": "scripts.produce_phase_xgb8_lr03_extra_oof",
+        "gpu": True,
+        "targets": ["action", "point", "server"],
+        "depends_on": [],
+    },
+    # XGBoost depth ladder continuation (low priority)
     {
         "name": "phase_xgb14_extra",
         "module": "scripts.produce_phase_xgb14_extra_oof",
