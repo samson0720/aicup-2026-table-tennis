@@ -74,8 +74,8 @@ PROD_RULE = os.environ.get("AICUP_PROD_RULE", "additive_baseline")
 # stack found action~0.6 / point~0.5 optimal (overall +0.00261 > floor 0.00168).
 # Env overrides let us A/B; production defaults below.
 BETAS = {
-    "action": float(os.environ.get("AICUP_BETA_ACTION", "0.7")),
-    "point": float(os.environ.get("AICUP_BETA_POINT", "0.8")),
+    "action": float(os.environ.get("AICUP_BETA_ACTION", "0.5")),
+    "point": float(os.environ.get("AICUP_BETA_POINT", "0.6")),
 }
 
 
