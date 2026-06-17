@@ -25,6 +25,9 @@ AI CUP競賽資料集/
   sample_submission.csv
   Reference_Only_Old_Test_Data/
 
+another_data/
+  External training data (train.csv, test.csv) for the *_extra model families.
+
 scripts/
   Feature building, CV split generation, model training, OOF production,
   stacking, post-processing, diagnostics, and submission builders.
@@ -43,11 +46,9 @@ Large reproducible intermediates are intentionally ignored by git:
 - `artifacts/oof/*.parquet`
 - `artifacts/*.pkl`
 - `artifacts/*.joblib`
-- `another_data/`
 
 This means the final checked-in submission files are present, but a full
-from-scratch rebuild requires regenerating OOF/test probability parquet files
-and restoring any optional external data under `another_data/`.
+from-scratch rebuild requires regenerating OOF/test probability parquet files.
 
 ## Environment
 
@@ -184,6 +185,14 @@ python -m scripts.predict_test_base --model markov
 python -m scripts.predict_test_base --model phase_lgbm
 ```
 
+The commands above only cover the four core bases, where `produce_base_oof`
+writes OOF parquets and `predict_test_base` writes test parquets. The full
+production stack (21 action / 21 point / 18 server) also relies on per-base
+producer scripts named `scripts/produce_<base>_oof.py`; for the `*_extra` bases
+a single run emits both the OOF and `_test` parquets and requires
+`another_data/`. See the `BASES` dict in `scripts/build_final_perrow.py` for the
+authoritative list.
+
 Build the final per-row stack and safe submission:
 
 ```bash
@@ -237,7 +246,7 @@ artifacts/final_perrow_scores.json
 
 ## Notes On Reproducibility
 
-Several scripts depend on large ignored intermediates and optional external data.
+Several scripts depend on large ignored intermediates.
 For a clean rebuild, generate artifacts in this order:
 
 1. Generate `artifacts/cv_splits.parquet`.
@@ -245,9 +254,6 @@ For a clean rebuild, generate artifacts in this order:
 3. Produce corresponding test probability parquets under `artifacts/oof/`.
 4. Run `scripts.build_final_perrow`.
 5. Optionally run `scripts.build_leakmax_submission`.
-
-The `*_extra` model families require `another_data/train.csv`, which is excluded
-from version control.
 
 ## Important Caveats
 
