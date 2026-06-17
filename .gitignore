@@ -15,8 +15,6 @@ artifacts/submission_*.csv
 !artifacts/submission_FINAL_safe_perrow.csv
 !artifacts/submission_FINAL_leakmax.csv
 
-# External data not for public release
-another_data/
 
 # Internal AI agent documents
 HANDOFF.md
